@@ -20,7 +20,6 @@
 #define MP_WAVY_SINGLETON_H__
 
 #include "mp/wavy/core.h"
-#include "mp/wavy/output.h"
 
 namespace mp {
 namespace wavy {
@@ -29,50 +28,75 @@ namespace wavy {
 template <typename Instance>
 struct singleton {
 
-	typedef core::handler handler;
-	typedef output::finalize_t finalize_t;
-	typedef output::request request;
+	typedef wavy::basic_handler basic_handler;
+	typedef wavy::handler handler;
 
-	static void initialize(size_t core_thread, size_t output_thread);
+	static void init(size_t num_threads = 0);
 
-	static void add_core_thread(size_t num);
-	static void add_output_thread(size_t num);
+	static void step_next();
+
+	static void add_thread(size_t num);
+
+	static void end();
+	static bool is_end();
 
 	static void join();
 	static void detach();
-	static void end();
-
-	static void write(int fd, const char* buf, size_t buflen);
-	static void writev(int fd, const iovec* vec, size_t veclen);
-
-	static void write(int fd, const char* buf, size_t buflen, request req);
-	static void write(int fd, const char* buf, size_t buflen, finalize_t finalize, void* user);
-	static void writev(int fd, const iovec* vec, size_t veclen, request req);
-	static void writev(int fd, const iovec* vec, size_t veclen, finalize_t finalize, void* user);
-
-	static void writev(int fd, const iovec* bufvec, const request* reqvec, size_t veclen);
 
 
-	typedef core::connect_callback_t connect_callback_t;
-	static void connect(
-			int socket_family, int socket_type, int protocol,
-			const sockaddr* addr, socklen_t addrlen,
-			int timeout_msec, connect_callback_t callback);
+	typedef core::finalize_t finalize_t;
 
 
-	typedef core::listen_callback_t listen_callback_t;
-	static void listen(int lsock, listen_callback_t callback);
+	static void write(int fd, const void* buf, size_t size);
 
 
-	typedef core::timer_callback_t timer_callback_t;
-	static void timer(const timespec* interval, timer_callback_t callback);
+	static void write(int fd, const void* buf, size_t size,
+			finalize_t fin, void* user);
+
+	template <typename T>
+	static void write(int fd, const void* buf, size_t size,
+			std::auto_ptr<T>& fin);
+
+	template <typename T>
+	static void write(int fd, const void* buf, size_t size,
+			mp::shared_ptr<T> fin);
+
+	
+	static void writev(int fd, const struct iovec* vec, size_t veclen,
+			finalize_t fin, void* user);
+	
+	template <typename T>
+	static void writev(int fd, const struct iovec* vec, size_t veclen,
+			std::auto_ptr<T>& fin);
+
+	template <typename T>
+	static void writev(int fd, const struct iovec* vec, size_t veclen,
+			mp::shared_ptr<T> fin);
+
+
+	static void sendfile(int fd, int infd, uint64_t off, size_t size,
+			finalize_t fin, void* user);
+	
+	static void hsendfile(int fd,
+			const void* header, size_t header_size,
+			int infd, uint64_t off, size_t size,
+			finalize_t fin, void* user);
+	
+	static void hvsendfile(int fd,
+			const struct iovec* header_vec, size_t header_veclen,
+			int infd, uint64_t off, size_t size,
+			finalize_t fin, void* user);
+
+	typedef core::xfer xfer;
+
+	static void commit(int fd, xfer* xf);
 
 
 	template <typename Handler>
-	static Handler* add(int fd);
+	static shared_ptr<Handler> add_handler();
 MP_ARGS_BEGIN
 	template <typename Handler, MP_ARGS_TEMPLATE>
-	static Handler* add(int fd, MP_ARGS_PARAMS);
+	static shared_ptr<Handler> add_handler(MP_ARGS_PARAMS);
 MP_ARGS_END
 
 	template <typename F>
@@ -82,9 +106,43 @@ MP_ARGS_BEGIN
 	static void submit(F f, MP_ARGS_PARAMS);
 MP_ARGS_END
 
+
+	typedef core::connect_callback_t connect_callback_t;
+
+	static void connect_thread(int socket_family, int socket_type, int protocol,
+			const sockaddr* addr, socklen_t addrlen,
+			int timeout_msec, connect_callback_t callback);
+
+	static void connect_event(int socket_family, int socket_type, int protocol,
+			const sockaddr* addr, socklen_t addrlen,
+			int timeout_msec, connect_callback_t callback);
+
+
+	typedef core::listen_callback_t listen_callback_t;
+
+	static int listen_event(int socket_family, int socket_type, int protocol,
+			const sockaddr* addr, socklen_t addrlen,
+			listen_callback_t callback,
+			int backlog = 1024);
+
+
+	typedef core::timer_callback_t timer_callback_t;
+
+	static void timer_thread(const timespec* value, const timespec* interval,
+			timer_callback_t callback);
+
+	static void timer_event(const timespec* value, const timespec* interval,
+			timer_callback_t callback);
+
+
+	typedef core::signal_callback_t signal_callback_t;
+
+	static void signal_thread(const sigset_t* set, signal_callback_t callback);
+
+	static void signal_event(int signo, signal_callback_t callback);
+
 private:
 	static core* s_core;
-	static output* s_output;
 
 	singleton();
 };
@@ -93,106 +151,115 @@ template <typename Instance>
 core* singleton<Instance>::s_core;
 
 template <typename Instance>
-output* singleton<Instance>::s_output;
-
-template <typename Instance>
-void singleton<Instance>::initialize(size_t core_thread, size_t output_thread)
+inline void singleton<Instance>::init(size_t num_threads)
 {
 	s_core = new core();
-	s_output = new output();
-	add_core_thread(core_thread);
-	add_output_thread(output_thread);
+	add_thread(num_threads);
 }
 
 template <typename Instance>
-void singleton<Instance>::add_core_thread(size_t num)
+inline void singleton<Instance>::step_next()
+	{ s_core->step_next(); }
+
+template <typename Instance>
+inline void singleton<Instance>::add_thread(size_t num)
 	{ s_core->add_thread(num); }
 
 template <typename Instance>
-void singleton<Instance>::add_output_thread(size_t num)
-	{ s_output->add_thread(num); }
-
-template <typename Instance>
-void singleton<Instance>::join()
-{
-	s_core->join();
-	s_output->join();
-}
-
-template <typename Instance>
-void singleton<Instance>::detach()
-{
-	s_core->detach();
-	s_output->detach();
-}
-
-template <typename Instance>
-void singleton<Instance>::end()
+inline void singleton<Instance>::end()
 {
 	s_core->end();
-	s_output->end();
 }
 
 template <typename Instance>
-inline void singleton<Instance>::write(int fd, const char* buf, size_t buflen)
-	{ s_output->write(fd, buf, buflen); }
-
-template <typename Instance>
-inline void singleton<Instance>::writev(int fd, const iovec* vec, size_t veclen)
-	{ s_output->writev(fd, vec, veclen); }
-
-template <typename Instance>
-inline void singleton<Instance>::write(int fd, const char* buf, size_t buflen, request req)
-	{ s_output->write(fd, buf, buflen, req); }
-
-template <typename Instance>
-inline void singleton<Instance>::write(int fd, const char* buf, size_t buflen, finalize_t finalize, void* user)
-	{ s_output->write(fd, buf, buflen, finalize, user); }
-
-template <typename Instance>
-inline void singleton<Instance>::writev(int fd, const iovec* vec, size_t veclen, request req)
-	{ s_output->writev(fd, vec, veclen, req); }
-
-template <typename Instance>
-inline void singleton<Instance>::writev(int fd, const iovec* vec, size_t veclen, finalize_t finalize, void* user)
-	{ s_output->writev(fd, vec, veclen, finalize, user); }
-
-template <typename Instance>
-inline void singleton<Instance>::writev(int fd, const iovec* bufvec, const request* reqvec, size_t veclen)
-	{ s_output->writev(fd, bufvec, reqvec, veclen); }
-
-
-template <typename Instance>
-inline void singleton<Instance>::connect(
-		int socket_family, int socket_type, int protocol,
-		const sockaddr* addr, socklen_t addrlen,
-		int timeout_msec, connect_callback_t callback)
+bool singleton<Instance>::is_end()
 {
-	s_core->connect(socket_family, socket_type, protocol,
-			addr, addrlen, timeout_msec, callback);
+	return s_core->is_end();
 }
 
+template <typename Instance>
+inline void singleton<Instance>::join()
+{
+	s_core->join();
+}
 
 template <typename Instance>
-inline void singleton<Instance>::listen(int lsock, listen_callback_t callback)
-	{ s_core->listen(lsock, callback); }
-
+inline void singleton<Instance>::detach()
+{
+	s_core->detach();
+}
 
 template <typename Instance>
-inline void singleton<Instance>::timer(
-		const timespec* interval, timer_callback_t callback)
-	{ s_core->timer(interval, callback); }
+inline void singleton<Instance>::write(int fd, const void* buf, size_t size)
+	{ s_core->write(fd, buf, size); }
+
+template <typename Instance>
+inline void singleton<Instance>::write(int fd, const void* buf, size_t size,
+		finalize_t fin, void* user)
+	{ s_core->write(fd, buf, size, fin, user); }
+
+template <typename Instance>
+template <typename T>
+inline void singleton<Instance>::write(int fd, const void* buf, size_t size,
+		std::auto_ptr<T>& fin)
+	{ s_core->write(fd, buf, fin); }
+
+template <typename Instance>
+template <typename T>
+inline void singleton<Instance>::write(int fd, const void* buf, size_t size,
+		mp::shared_ptr<T> fin)
+	{ s_core->write(fd, buf, fin); }
+
+template <typename Instance>
+inline void singleton<Instance>::writev(int fd, const struct iovec* vec, size_t veclen,
+		finalize_t fin, void* user)
+	{ s_core->writev(fd, vec, veclen, fin, user); }
+
+template <typename Instance>
+template <typename T>
+inline void singleton<Instance>::writev(int fd, const struct iovec* vec, size_t veclen,
+		std::auto_ptr<T>& fin)
+	{ s_core->writev(fd, vec, veclen, fin); }
+
+template <typename Instance>
+template <typename T>
+inline void singleton<Instance>::writev(int fd, const struct iovec* vec, size_t veclen,
+		mp::shared_ptr<T> fin)
+	{ s_core->writev(fd, vec, veclen, fin); }
+
+template <typename Instance>
+inline void singleton<Instance>::sendfile(int fd, int infd, uint64_t off, size_t size,
+		finalize_t fin, void* user)
+	{ s_core->sendfile(fd, infd, off, size, fin, user); }
+
+template <typename Instance>
+inline void singleton<Instance>::hsendfile(int fd,
+		const void* header, size_t header_size,
+		int infd, uint64_t off, size_t size,
+		finalize_t fin, void* user)
+	{ s_core->hsendfile(fd, header, header_size, infd, off, size, fin, user); }
+
+template <typename Instance>
+inline void singleton<Instance>::hvsendfile(int fd,
+		const struct iovec* header_vec, size_t header_veclen,
+		int infd, uint64_t off, size_t size,
+		finalize_t fin, void* user)
+	{ s_core->hsendfile(fd, header_vec, header_veclen, infd, off, size, fin, user); }
+
+template <typename Instance>
+inline void singleton<Instance>::commit(int fd, xfer* xf)
+	{ s_core->commit(fd, xf); }
 
 
 template <typename Instance>
 template <typename Handler>
-inline Handler* singleton<Instance>::add(int fd)
-	{ return s_core->add<Handler>(fd); }
+inline shared_ptr<Handler> singleton<Instance>::add_handler()
+	{ return s_core->add_handler<Handler>(); }
 MP_ARGS_BEGIN
 template <typename Instance>
 template <typename Handler, MP_ARGS_TEMPLATE>
-inline Handler* singleton<Instance>::add(int fd, MP_ARGS_PARAMS)
-	{ return s_core->add<Handler, MP_ARGS_TYPES>(fd, MP_ARGS_FUNC); }
+inline shared_ptr<Handler> singleton<Instance>::add_handler(MP_ARGS_PARAMS)
+	{ return s_core->add_handler<Handler, MP_ARGS_TYPES>(MP_ARGS_FUNC); }
 MP_ARGS_END
 
 template <typename Instance>
@@ -205,6 +272,57 @@ template <typename F, MP_ARGS_TEMPLATE>
 inline void singleton<Instance>::submit(F f, MP_ARGS_PARAMS)
 	{ s_core->submit<F, MP_ARGS_TYPES>(f, MP_ARGS_FUNC); }
 MP_ARGS_END
+
+
+template <typename Instance>
+inline void singleton<Instance>::connect_thread(
+			int socket_family, int socket_type, int protocol,
+			const sockaddr* addr, socklen_t addrlen,
+			int timeout_msec, connect_callback_t callback)
+	{ s_core->connect_thread(socket_family, socket_type, protocol,
+			addr, addrlen, timeout_msec, callback); }
+
+template <typename Instance>
+inline void singleton<Instance>::connect_event(
+			int socket_family, int socket_type, int protocol,
+			const sockaddr* addr, socklen_t addrlen,
+			int timeout_msec, connect_callback_t callback)
+	{ s_core->connect_event(socket_family, socket_type, protocol,
+			addr, addrlen, timeout_msec, callback); }
+
+
+template <typename Instance>
+inline int singleton<Instance>::listen_event(
+			int socket_family, int socket_type, int protocol,
+			const sockaddr* addr, socklen_t addrlen,
+			listen_callback_t callback,
+			int backlog)
+	{ return s_core->listen_event(socket_family, socket_type, protocol,
+			addr, addrlen, callback, backlog); }
+
+
+template <typename Instance>
+inline void singleton<Instance>::timer_thread(
+		const timespec* value, const timespec* interval,
+		timer_callback_t callback)
+	{ s_core->timer_thread(value, interval, callback); }
+
+template <typename Instance>
+inline void singleton<Instance>::timer_event(
+		const timespec* value, const timespec* interval,
+		timer_callback_t callback)
+	{ s_core->timer_event(value, interval, callback); }
+
+
+template <typename Instance>
+inline void singleton<Instance>::signal_thread(
+		const sigset_t* set, signal_callback_t callback)
+	{ s_core->signal_thread(set, callback); } 
+
+template <typename Instance>
+inline void singleton<Instance>::signal_event(
+		int signo, signal_callback_t callback)
+	{ s_core->signal_event(signo, callback); } 
 
 
 }  // namespace wavy

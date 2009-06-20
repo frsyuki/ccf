@@ -19,20 +19,18 @@
 #define CCF_LISTENER_H__
 
 #include "ccf/util.h"
+#include <cclog/cclog.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-
-//#include "log/mlogger.h"
-#include <iostream>
 
 namespace ccf {
 
 
 template <typename IMPL>
-class listener : public mp::wavy::handler {
+class listener : public core::handler {
 public:
 	listener(int fd);
-	virtual ~listener();
+	~listener();
 
 private:
 	void read_event();
@@ -47,7 +45,7 @@ private:
 
 template <typename IMPL>
 listener<IMPL>::listener(int fd) :
-	mp::wavy::handler(fd) { }
+	core::handler(fd) { }
 
 template <typename IMPL>
 listener<IMPL>::~listener() { }
@@ -83,12 +81,10 @@ try {
 	}
 
 } catch(std::exception& e) {
-	//FIXME LOG_ERROR("listener: ", e.what());
-	std::cerr << "listener: " << e.what() << std::endl;
+	LOG_ERROR("listener: ", e.what());
 	throw;
 } catch(...) {
-	//FIXME LOG_ERROR("listener: unknown error");
-	std::cerr << "listener: unknown error" << std::endl;
+	LOG_ERROR("listener: unknown error");
 	throw;
 }
 

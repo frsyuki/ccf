@@ -1,7 +1,7 @@
 //
-// mp::wavy
+// cclog
 //
-// Copyright (C) 2008 FURUHASHI Sadayuki
+// Copyright (C) 2009 FURUHASHI Sadayuki
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -15,12 +15,21 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 //
+#ifndef CCLOG_TTY_H__
+#define CCLOG_TTY_H__
 
-#ifndef MP_WAVY_H__
-#define MP_WAVY_H__
+#include "cclog.h"
 
-#include "mp/wavy/core.h"
-//#include "mp/wavy/singleton.h"
+class cclog_tty : public cclog {
+public:
+	cclog_tty(level runtime_level, std::ostream& stream);
+	~cclog_tty();
 
-#endif /* mp/wavy.h */
+	void log_impl(level lv, std::string& str);
+
+private:
+	std::ostream& m_stream;
+};
+
+#endif /* cclog_tty.h */
 

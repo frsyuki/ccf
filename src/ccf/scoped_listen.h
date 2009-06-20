@@ -89,6 +89,11 @@ public:
 		return m_sock;
 	}
 
+	int get() const
+	{
+		return m_sock;
+	}
+
 	address addr() const
 	{
 		return address(m_addr);

@@ -33,30 +33,30 @@ namespace service {
 
 static std::auto_ptr<mp::pthread_signal> s_signal_thread;
 
-static void signal_handler(void*, int signo)
+static bool signal_handler(int signo)
 {
-	stop();
+	end();
+	return true;
 }
 
 void init()
 {
+	core::init();
+
 	if(signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		throw mp::system_error(errno, "failed to set SIGPIPE handler");
 	}
 
-	sigset_t ss;
-	sigemptyset(&ss);
-	sigaddset(&ss, SIGHUP);
-	sigaddset(&ss, SIGINT);
-	sigaddset(&ss, SIGTERM);
+	//sigset_t ss;
+	//sigemptyset(&ss);
+	//sigaddset(&ss, SIGHUP);
+	//sigaddset(&ss, SIGINT);
+	//sigaddset(&ss, SIGTERM);
+	//core::signal_thread(&ss, &signal_handler);
 
-	s_signal_thread.reset( new mp::pthread_signal(ss,
-				&signal_handler, NULL) );
-
-	//event.reset(new mp::wavy::core());
-	//net.reset(new mp::wavy::net());
-	core::init();
-	net::init();
+	core::signal_event(SIGHUP,  &signal_handler);
+	core::signal_event(SIGINT,  &signal_handler);
+	core::signal_event(SIGTERM, &signal_handler);
 }
 
 void daemonize(const char* pidfile, const char* stdio)
@@ -91,31 +91,31 @@ void daemonize(const char* pidfile, const char* stdio)
 	}
 }
 
-void start(size_t rthreads, size_t wthreads)
+void start(size_t num_threads)
 {
-	//event->add_thread(rthreads);
-	//net->add_thread(wthreads);
-	core::add_thread(rthreads);
-	net::add_thread(rthreads);
+	core::add_thread(num_threads);
+}
+
+void step_next()
+{
+	core::step_next();
 }
 
 void join()
 {
-	//event->join();
-	//net->join();
 	core::join();
-	net::join();
 }
 
 
-void stop()
+void end()
 {
-	//event->end();
-	//net->end();
 	core::end();
-	net::end();
 }
 
+bool is_end()
+{
+	return core::is_end();
+}
 
 }  // namespace service
 }  // namespace ccf

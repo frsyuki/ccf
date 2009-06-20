@@ -1,6 +1,8 @@
 AM_CPPFLAGS   = -I..
 AM_C_CPPFLAGS = -I..
 
+SUBDIRS = proto
+
 bin_PROGRAMS = mpecho-server mpecho-client
 
 mpecho_server_SOURCES = \
@@ -8,14 +10,16 @@ mpecho_server_SOURCES = \
 
 mpecho_server_LDADD = \
 		../ccf/libccf.a \
-		../mpio/libmpio.a
+		../mpsrc/libmpio.a \
+		../cclog/libcclog.a
 
 mpecho_client_SOURCES = \
 		client/main.cc
 
 mpecho_client_LDADD = \
 		../ccf/libccf.a \
-		../mpio/libmpio.a
+		../mpsrc/libmpio.a \
+		../cclog/libcclog.a
 
 # work around for duplicated file name
 mpecho_server_CFLAGS = $(AM_CFLAGS)

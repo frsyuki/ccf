@@ -3,7 +3,6 @@ NEED_PREPROCESS = \
 		object_callback.h \
 		wavy/core.h \
 		wavy/singleton.h \
-		wavy/service.h \
 		sparse_array.h \
 		sparse_array_impl.h
 
@@ -12,6 +11,7 @@ MOSTLYCLEANFILES = $(NEED_PREPROCESS)
 EXTRA_DIST = $(NEED_PREPROCESS)
 
 noinst_HEADERS = \
+	endian.h \
 	exception.h \
 	functional.h \
 	memory.h \
@@ -27,10 +27,7 @@ noinst_HEADERS = \
 	stream_buffer_impl.h \
 	utility.h \
 	wavy/core.h \
-	wavy/output.h \
-	wavy/net.h \
 	wavy/singleton.h \
-	wavy/service.h \
 	wavy.h
 
 # FIXME GNU make extension

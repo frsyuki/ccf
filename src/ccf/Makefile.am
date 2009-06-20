@@ -4,7 +4,8 @@ libccf_a_CPPFLAGS = -I..
 
 libccf_a_SOURCES = \
 		address.cc \
-		service.cc
+		service.cc \
+		session.cc
 
 noinst_HEADERS = \
 		address.h \

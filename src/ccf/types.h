@@ -1,5 +1,5 @@
 //
-// ccf::service - Cluster Communication Framework
+// ccf::types - Cluster Communication Framework
 //
 // Copyright (C) 2009 FURUHASHI Sadayuki
 //
@@ -15,39 +15,37 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 //
-#ifndef CCF_SERVICE_H__
-#define CCF_SERVICE_H__
+#ifndef CCF_TYPES_H__
+#define CCF_TYPES_H__
 
-#include <mp/wavy/singleton.h>
+#include <msgpack.hpp>
+#include <mp/memory.h>
+#include <mp/functional.h>
+#include <mp/pthread.h>
 
 namespace ccf {
-namespace service {
 
 
-void init();
-
-void daemonize(const char* pidfile = NULL, const char* stdio = "/dev/null");
-
-void start(size_t num_threads);
-
-void step_next();
-
-void join();
-
-void end();
-
-bool is_end();
+typedef uint32_t msgid_t;
+typedef uint32_t method_t;
 
 
-}  // namespace service
+typedef msgpack::object msgobj;
+typedef std::auto_ptr<msgpack::zone> auto_zone;
+typedef mp::shared_ptr<msgpack::zone> shared_zone;
 
+class session;
+typedef mp::shared_ptr<session> shared_session;
+typedef mp::weak_ptr<session> weak_session;
 
-struct ccf_wavy;
+typedef mp::function<void (msgobj, msgobj, auto_zone)> callback_t;
 
-typedef mp::wavy::singleton<ccf_wavy> core;
+using mp::pthread_scoped_lock;
+using mp::pthread_scoped_rdlock;
+using mp::pthread_scoped_wrlock;
 
 
 }  // namespace ccf
 
-#endif /* ccf/service.h */
+#endif /* ccf/types.h */
 

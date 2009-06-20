@@ -1,50 +1,67 @@
 #include <ccf/service.h>
+#include <ccf/server.h>
 #include <ccf/scoped_listen.h>
-#include <mp/object_callback.h>
-#include "server/connection.h"
-#include "server/service_listener.h"
+#include <cclog/cclog_tty.h>
+#include "server/proto.h"
+#include "server/stub.h"
 
-namespace mpecho {
+namespace server {
 
-class server : public connection<server> {
+class framework : public ccf::server {
 public:
-	server(int fd) : connection<server>(fd) { }
-	~server() { }
+	framework() { }
+	~framework() { }
 
-	void process_message(msgpack::object msg, std::auto_ptr<msgpack::zone>& z)
+	void dispatch(ccf::shared_session from,
+			ccf::method_t method, ccf::msgobj param,
+			ccf::session_responder response, ccf::auto_zone& z)
 	{
-		std::cout << msg << std::endl;
-
-		msgpack::sbuffer sbuf;
-		msgpack::pack(sbuf, msg);
-
-		ccf::net::send(fd(), sbuf.data(), sbuf.size(), &::free, sbuf.data());
-		sbuf.release();
+		::server::dispatch(from, method, param, response, z);  // stub.h
 	}
 };
 
-typedef service_listener<mpecho::server> server_listener;
+std::auto_ptr<framework> net;
 
-}  // namespace mpecho
+void svr_Get(Get param, ccf::session_responder response,
+		ccf::shared_session from, ccf::auto_zone& z)
+{
+	LOG_INFO("Get called: key=",param.key);
+	response.result(true);
+}
+
+void svr_Set(Set param, ccf::session_responder response,
+		ccf::shared_session from, ccf::auto_zone& z)
+{
+	LOG_INFO("Set called: key=",param.key," value=",param.value);
+	response.result(true);
+}
+
+void init(int conf_sock)
+{
+	net.reset(new framework());
+
+	ccf::core::add_handler<ccf::server_listener>(conf_sock, net.get());
+}
+
+}  // namespace server
 
 
 int main(int argc, char* argv[])
 {
+	cclog::reset(new cclog_tty(cclog::TRACE, std::cout));
+	ccf::service::init();
+
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	addr.sin_port = htons(3000);
 
-	ccf::service::init();
-
 	ccf::scoped_listen lsock(addr);
+	server::init(lsock.get());
 
-	//ccf::service::daemonize("mpecho-server.pid");
-
-	ccf::core::add_handler<mpecho::server_listener>(lsock.sock());
-
-	ccf::service::start(4, 3);   // worker=4, sender=3 threads
+	ccf::service::start(4);  // 4 threads
 	ccf::service::join();
+	LOG_INFO("end");
 }
 

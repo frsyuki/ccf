@@ -4,6 +4,17 @@ licensed under Apache License, Version 2.0.
 This software includes mpio library developed by FURUHASHI Sadayuki,
 licensed under Apache License, Version 2.0.
 
+This software includes mplex, Extended Metaprogramming Library developed
+by FURUHASHI Sadayuki, licensed under Apache License, Version 2.0. The
+original software and related information is available at
+http://github.com/frsyuki/mplex/
+
+This software includes Phraser, Simple lexer and parser combinator library
+developed by FURUHASHI Sadayuki, licensed under Apache License, Version 2.0.
+
+This software includes cclog, pretty coloring logger developed by
+FURUHASHI Sadayuki, licensed under Apache License, Version 2.0.
+
 MessagePack is developed by FURUHASHI Sadayuki, licensed under Apache License,
 Version 2.0. The original software and related information is available at
 http://msgpack.sourceforge.jp/.

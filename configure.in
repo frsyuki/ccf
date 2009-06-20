@@ -23,10 +23,10 @@ if test "x$RUBY" = x; then
 	AC_MSG_ERROR([cannot find ruby. Ruby is needed to build.])
 fi
 
-#AC_CHECK_PROG(ERB, erb, erb)
-#if test "x$ERB" = x; then
-#	AC_MSG_ERROR([cannot find erb. Ruby is needed to build.])
-#fi
+AC_CHECK_PROG(ERB, erb, erb)
+if test "x$ERB" = x; then
+	AC_MSG_ERROR([cannot find erb. Ruby is needed to build.])
+fi
 
 #AC_CHECK_PROG(RAGEL, ragel, ragel)
 #if test "x$RAGEL" = x; then
@@ -120,10 +120,14 @@ fi
 AC_MSG_RESULT($enable_debug)
 
 
-AC_OUTPUT([src/mp/Makefile
-		   src/mpio/Makefile
+AC_OUTPUT([
+		   src/generator/Makefile
+			 src/mp/Makefile
+		   src/mpsrc/Makefile
+		   src/cclog/Makefile
 		   src/ccf/Makefile
 		   src/Makefile
+		   src/logic/proto/Makefile
 		   src/logic/Makefile
 		   Makefile])
 

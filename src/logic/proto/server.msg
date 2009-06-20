@@ -1,0 +1,11 @@
+@package server;
+
+@message Get
+	std::string key;
+@end = 0
+
+@message Set
+	std::string key;
+	std::string value;
+@end = 1
+

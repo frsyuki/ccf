@@ -1,78 +1,67 @@
 #include <ccf/service.h>
-#include <mp/functional.h>
-#include <msgpack.hpp>
-#include <string.h>
-#include "server/connection.h"
+#include <ccf/client.h>
+#include <cclog/cclog_tty.h>
+#include "server/proto.h"
 
-namespace mpecho {
+namespace client {
 
-class client : public connection<client> {
+class framework : public ccf::client {
 public:
-	static void connect_callback(int fd, int err, int argc, char** argv)
-	try {
-		if(err) {
-			throw mp::system_error(err, "connect failed");
-		}
-	
-		ccf::core::add_handler<client>(fd, argc, argv);
-	
-		ccf::service::stop();
-	
-	} catch(std::exception& e) {
-		std::clog << e.what() << std::endl;
-		ccf::service::stop();
-	}
-
-public:
-	client(int fd, int argc, char** argv) : connection<client>(fd)
-	{
-		msgpack::sbuffer sbuf;
-		msgpack::packer<msgpack::sbuffer> pk(sbuf);
-	
-		pk.pack_array(argc);
-		for(int i=0; i < argc; ++i) {
-			size_t len = strlen(argv[i]);
-			pk.pack_raw(len);
-			pk.pack_raw_body(argv[i], len);
-		}
-	
-		ccf::net::send(fd, sbuf.data(), sbuf.size(), &::free, sbuf.data());
-		sbuf.release();
-	}
-
-	~client() { }
-
-	void process_message(msgpack::object msg, std::auto_ptr<msgpack::zone>& z)
-	{
-		std::cout << msg << std::endl;
-
-		ccf::service::stop();
-	}
+	framework() { }
+	~framework() { }
 };
 
-}  // namespace mpecho
+std::auto_ptr<framework> net;
+
+void cb_Get(ccf::msgobj res, ccf::msgobj err, ccf::auto_zone z, int* context)
+{
+	LOG_INFO("Get callback: res=",res," err=",err," context=",*context);
+}
+
+void cb_Set(ccf::msgobj res, ccf::msgobj err, ccf::auto_zone z, int* context)
+{
+	LOG_INFO("Set callback: res=",res," err=",err," context=",*context);
+	ccf::service::end();
+}
+
+void init(ccf::address conf_addr)
+{
+	net.reset(new framework());
+
+	ccf::shared_session session = net->get_session(conf_addr);
+
+	using namespace mp::placeholders;
+
+	ccf::shared_zone life(new msgpack::zone());
+	int* context = life->allocate<int>(10);
+
+	server::Set set("test", "test");
+	session->call(set, life, mp::bind(cb_Set, _1, _2, _3, context));
+
+	server::Get get("test");
+	session->call(get, life, mp::bind(cb_Get, _1, _2, _3, context));
+}
+
+}  // namespace client
 
 
 int main(int argc, char* argv[])
 {
+	cclog::reset(new cclog_tty(cclog::TRACE, std::cout));
+	ccf::service::init();
+
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	addr.sin_port = htons(3000);
 
-	ccf::service::init();
+	client::init( ccf::address(addr) );
 
-	using namespace mp::placeholders;
-
-	ccf::core::connect(PF_INET, SOCK_STREAM, 0,
-			(sockaddr*)&addr, sizeof(addr),
-			10000,  // timeout (msec)
-			mp::bind(
-				&mpecho::client::connect_callback,
-				_1, _2, argc, argv));
-
-	ccf::service::start(4, 3);
+	ccf::service::start(4);  // 4 threads
 	ccf::service::join();
+	//while(!ccf::service::is_end()) {
+	//	ccf::service::step_next();
+	//}
 }
 

@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+
+require 'ccfproto'
+require 'mplex'
+
+if ARGV.length != 3
+	puts "usage #{File.basename($0)} <tmpl> <input> <output>"
+	exit 1
+end
+
+ftmpl   = ARGV.shift
+finput  = ARGV.shift
+foutput = ARGV.shift
+
+input = File.read(finput)
+tmpl  = File.read(ftmpl)
+
+ctx = CCF::Protogen::parse(input)
+
+result = Mplex.result(tmpl, ctx, ftmpl)
+
+File.open(foutput, "w") {|f| f.write(result) }
+

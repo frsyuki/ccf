@@ -1,5 +1,5 @@
 //
-// ccf::util - Cluster Communication Framework
+// cclog
 //
 // Copyright (C) 2009 FURUHASHI Sadayuki
 //
@@ -15,33 +15,42 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 //
-#ifndef CCF_UTIL_H__
-#define CCF_UTIL_H__
+#include "cclog_syslog.h"
+#include <string.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-
-namespace ccf {
-namespace util {
-
-
-static inline void fd_setup(int fd)
+cclog_syslog::cclog_syslog(level runtime_level, const char* ident, int facility, int option) :
+	cclog(runtime_level)
 {
-#ifndef NO_TCP_NODELAY
-	int on = 1;
-	::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));  // ignore error
-#endif
-#ifndef NO_SO_LINGER
-	struct linger opt = {0, 0};
-	::setsockopt(fd, SOL_SOCKET, SO_LINGER, (void *)&opt, sizeof(opt));  // ignore error
-#endif
+	::openlog(ident, option, facility);
 }
 
+cclog_syslog::~cclog_syslog()
+{
+	::closelog();
+}
 
-}  // namespace util
-}  // namespace ccf
+void cclog_syslog::log_impl(level lv, std::string& str)
+{
+	int priority = LOG_DEBUG;
+	switch(lv) {
+	case TRACE:
+	case DEBUG:
+		priority = LOG_DEBUG;
+		break;
+	case INFO:
+		priority = LOG_INFO;
+		break;
+	case WARN:
+		priority = LOG_NOTICE;
+		break;
+	case ERROR:
+		priority = LOG_ERR;
+		break;
+	case FATAL:
+		priority = LOG_CRIT;
+		break;
+	}
 
-#endif /* ccf/util.h */
+	::syslog(priority, "%s", str.c_str());
+}
 
