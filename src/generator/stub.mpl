@@ -1,8 +1,4 @@
-__BEGIN__
-
-__END__
-namespace [%n%] {  %|n| package.each
-
+%def genstub
 %self.each do |msg|
 %next unless msg.id
 void svr_[%msg.name%]([%msg.name%] param, ccf::session_responder response,
@@ -25,6 +21,5 @@ void dispatch(ccf::shared_session from,
 		throw std::runtime_error("unknown method");  // FIXME
 	}
 }
-
-}  // namespace [%n%]  %|n| package.reverse_each
+%end
 %# vim: syntax=mplex

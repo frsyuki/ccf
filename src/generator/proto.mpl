@@ -9,8 +9,7 @@ def sep(i, c, between = ",")
 end
 
 __END__
-namespace [%n%] {  %|n| package.each
-
+%def genproto
 %self.each do |msg|
 struct [%msg.name%] {
 	static const int method = [%msg.id%];  %>if msg.id
@@ -62,6 +61,5 @@ struct [%msg.name%] {
 };
 
 %end
-
-}  // namespace [%n%]  %|n| package.reverse_each
+%end  # def genproto
 %# vim: syntax=mplex

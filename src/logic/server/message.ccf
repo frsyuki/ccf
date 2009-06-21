@@ -1,4 +1,3 @@
-@package server;
 
 @message Get
 	std::string key;

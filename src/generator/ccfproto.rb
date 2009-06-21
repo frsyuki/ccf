@@ -24,7 +24,6 @@ extend Phraser
 
 s = Phraser::Scanner.new
 
-s.token :@package
 s.token :@message
 s.token :@end
 s.token :optkey,    /\:[a-zA-Z0-9_]+/
@@ -68,18 +67,6 @@ class Message
 
 	def method_missing(*args, &block)
 		@body.__send__(*args, &block)
-	end
-end
-
-class Protocol
-	def initialize(messages, package)
-		@messages = messages
-		@package  = package || []
-	end
-	attr_reader :package
-
-	def each(&block)
-		@messages.each(&block)
 	end
 end
 
@@ -172,15 +159,8 @@ RMessageID = rule do
 	}
 end
 
-RPackage = rule do
-	(token(:@package) ^ token(:sym)[:a] ^ token(";")).action {|x,e| e[:a].split("::") }
-end
-
 RProtocol = rule do
-	(RPackage.opt[:pkg] ^
-			(RMessageID / RMessage[:a]).action {|x,e| e[:a] }.*[:msg]).action {|x,e|
-		Protocol.new(e[:msg], e[:pkg])
-	}
+	(RMessageID / RMessage[:a]).action {|x,e| e[:a] }.*
 end
 
 Rule = rule do

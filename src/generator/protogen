@@ -8,15 +8,23 @@ if ARGV.length != 3
 	exit 1
 end
 
+here = File.dirname(__FILE__)
+
 ftmpl   = ARGV.shift
 finput  = ARGV.shift
 foutput = ARGV.shift
+fproto  = "#{here}/proto.mpl"
+fstub   = "#{here}/stub.mpl"
 
 input = File.read(finput)
 tmpl  = File.read(ftmpl)
+proto = File.read(fproto)
+stub  = File.read(fstub)
 
 ctx = CCF::Protogen::parse(input)
 
+Mplex.result(proto, ctx, fproto)
+Mplex.result(stub,  ctx, fstub)
 result = Mplex.result(tmpl, ctx, ftmpl)
 
 File.open(foutput, "w") {|f| f.write(result) }

@@ -2,6 +2,7 @@
 #include <ccf/server.h>
 #include <ccf/scoped_listen.h>
 #include <cclog/cclog_tty.h>
+//#include <ccf/request.h>
 #include "server/proto.h"
 #include "server/stub.h"
 
