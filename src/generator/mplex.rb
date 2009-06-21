@@ -30,6 +30,7 @@ class Mplex
 	end
 
 	def self.result(src, context = nil, fname = "(mplex)")
+		context ||= Object.new
 		context.instance_eval(compile(src), fname)
 	end
 
@@ -40,7 +41,7 @@ class Mplex
 	private
 	def self.compile(src)
 		# MPLEX_COMPILE_BEGIN
-		o = "_o='';"
+		o = "MPLEXOUT='' unless defined? MPLEXOUT;"
 		k = false
 		src.each_line {|t|
 			(k = false; o << "\n"; next) if k && t == "__END__\n"
@@ -58,78 +59,13 @@ class Mplex
 
 			t.split(/\[\%(\:?.*?)\%\]/m).each_with_index {|m,i|
 				(o << "#{m[1..-1]};"; next) if m[0] == ?: && i % 2 == 1
-				(o << "_o.concat #{m}.to_s;"; next) if i % 2 == 1
-				o << "_o.concat #{m.dump};" unless m.empty?
+				(o << "MPLEXOUT.concat #{m}.to_s;"; next) if i % 2 == 1
+				o << "MPLEXOUT.concat #{m.dump};" unless m.empty?
 			}
 			o << "\n"
 		}
-		o << "_o"
+		o << "MPLEXOUT"
 		# MPLEX_COMPILE_END
 	end
 end
-
-
-if $0 == __FILE__
-
-require 'optparse'
-
-op = OptionParser.new
-op.banner += " [input=stdin]"
-
-input_file = "-"
-output_file = "-"
-ctx_file = nil
-load_libs = []
-script_mode = false
-
-op.on("-c file",    "context ruby script") {|v| ctx_file    = v    }
-op.on("-o file",    "output file")         {|v| output_file = v    }
-op.on("-r library", "load library")        {|v| load_libs  << v    }
-op.on("-x",         "print ruby script")   {|v| script_mode = true }
-
-begin
-	op.parse!(ARGV)
-
-	input_file = ARGV.shift unless ARGV.empty?
-
-	raise "unexpected argument #{ARGV.first.inspect}" unless ARGV.empty?
-	raise "both input and context are stdin" if input_file == "-" && ctx_file == "-"
-
-rescue
-	puts op.to_s
-	puts $!
-	exit 1
-end
-
-load_libs.each {|lib| require lib }
-
-if input_file == "-"
-	input = $stdin.read
-else
-	input = File.read(input_file)
-	input_file = "(stdin)"
-end
-
-b = nil; Object.instance_eval { b = binding }
-if ctx_file == "-"
-	ctx = eval($stdin.read, b, "(stdin)")
-elsif ctx_file
-	#ctx = load File.read(ctx_file)
-	ctx = eval(File.read(ctx_file), b, ctx_file)
-end
-
-if output_file == "-"
-	output = $stdout
-else
-	output = File.open(output_file, "w")
-end
-
-if script_mode
-	output.write Mplex.script(input)
-else
-	ctx ||= Object.new
-	output.write Mplex.result(input, ctx, input_file)
-end
-
-end  # $0 == __FILE__
 
