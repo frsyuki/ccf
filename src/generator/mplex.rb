@@ -25,13 +25,16 @@ class Mplex
 	end
 	attr_reader :script
 
-	def result(context = nil)
-		context.instance_eval(&@proc)
+	def result(context = nil, output = "")
+		self.class.with_context(context, output) {|ctx|
+			ctx.instance_eval(&@proc)
+		}
 	end
 
-	def self.result(src, context = nil, fname = "(mplex)")
-		context ||= Object.new
-		context.instance_eval(compile(src), fname)
+	def self.result(src, context = nil, fname = "(mplex)", output = "")
+		with_context(context, output) {|ctx|
+			ctx.instance_eval(compile(src), fname)
+		}
 	end
 
 	def self.script(src)
@@ -39,9 +42,19 @@ class Mplex
 	end
 
 	private
+	def self.with_context(context, output, &block)
+		context ||= Object.new
+		save = context.instance_variable_get(:@_mplexout)
+		context.instance_variable_set(:@_mplexout, output)
+		block.call(context)
+		output = context.instance_variable_get(:@_mplexout)
+		context.instance_variable_set(:@_mplexout, save)
+		output
+	end
+
 	def self.compile(src)
 		# MPLEX_COMPILE_BEGIN
-		o = "MPLEXOUT='' unless defined? MPLEXOUT;"
+		o = ""
 		k = false
 		src.each_line {|t|
 			(k = false; o << "\n"; next) if k && t == "__END__\n"
@@ -59,12 +72,12 @@ class Mplex
 
 			t.split(/\[\%(\:?.*?)\%\]/m).each_with_index {|m,i|
 				(o << "#{m[1..-1]};"; next) if m[0] == ?: && i % 2 == 1
-				(o << "MPLEXOUT.concat #{m}.to_s;"; next) if i % 2 == 1
-				o << "MPLEXOUT.concat #{m.dump};" unless m.empty?
+				(o << "@_mplexout.concat #{m}.to_s;"; next) if i % 2 == 1
+				o << "@_mplexout.concat #{m.dump};" unless m.empty?
 			}
 			o << "\n"
 		}
-		o << "MPLEXOUT"
+		o << "@_mplexout"
 		# MPLEX_COMPILE_END
 	end
 end
