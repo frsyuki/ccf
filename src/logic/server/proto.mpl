@@ -1,6 +1,11 @@
+#ifndef SERVER_PROTO_H__
+#define SERVER_PROTO_H__
+
 namespace server {
 
 %genproto
 
 }  // namespace server
-// vim: syntax=cpp
+
+#endif /* server/proto.h */
+%# vim: syntax=mplex

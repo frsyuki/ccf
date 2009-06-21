@@ -2,7 +2,6 @@
 #include <ccf/server.h>
 #include <ccf/scoped_listen.h>
 #include <cclog/cclog_tty.h>
-//#include <ccf/request.h>
 #include "server/proto.h"
 #include "server/stub.h"
 
@@ -17,30 +16,27 @@ public:
 			ccf::method_t method, ccf::msgobj param,
 			ccf::session_responder response, ccf::auto_zone& z)
 	{
-		::server::dispatch(from, method, param, response, z);  // stub.h
+		::server::dispatch(from, method, param, response, z);
 	}
 };
 
 std::auto_ptr<framework> net;
 
-void svr_Get(Get param, ccf::session_responder response,
-		ccf::shared_session from, ccf::auto_zone& z)
+SVR_IMPL(Get, req, zone)
 {
-	LOG_INFO("Get called: key=",param.key);
-	response.result(true);
+	LOG_INFO("Get called: key=",req.param.key);
+	req.result(true);
 }
 
-void svr_Set(Set param, ccf::session_responder response,
-		ccf::shared_session from, ccf::auto_zone& z)
+SVR_IMPL(Set, req, zone)
 {
-	LOG_INFO("Set called: key=",param.key," value=",param.value);
-	response.result(true);
+	LOG_INFO("Set called: key=",req.param.key," value=",req.param.value);
+	req.result(true);
 }
 
 void init(int conf_sock)
 {
 	net.reset(new framework());
-
 	ccf::core::add_handler<ccf::server_listener>(conf_sock, net.get());
 }
 

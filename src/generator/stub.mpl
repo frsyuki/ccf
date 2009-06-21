@@ -21,5 +21,5 @@ void dispatch(ccf::shared_session from,
 		throw std::runtime_error("unknown method");  // FIXME
 	}
 }
-%end
+%end  # genstub
 %# vim: syntax=mplex
