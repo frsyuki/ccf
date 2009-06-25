@@ -61,24 +61,26 @@ public:
 	// get/create RPC stub instance identified by id.
 	shared_session get_session(const Identifier& id);
 
+protected:
+	// called to create new session
+	shared_session new_session(const Identifier& id)
+	{
+		return shared_session(new session());
+	}
+
 	// add connection to the session identified by id.
-	// create session if the session is not exist.
-	template <typename F>
-	shared_session bind_session(const Identifier& id, F func);
+	// create session if the session doesn't exist.
+	// return pair of 'if session is created' and 'bound session.'
+	// you may want to call session_created if this function returns true.
+	std::pair<bool, shared_session> bind_session(const Identifier& id);
 
 	// called when new session is created.
-	// from get_session, bind_session
+	// from get_session
 	void session_created(const Identifier& id, shared_session s) { }
 
 	// called when the session is unbound.
 	// from session::remove_connection
 	void session_unbound(shared_session s) { }
-
-	// called to create new session
-	shared_session create_session(const Identifier& id)
-	{
-		return shared_session(new session());
-	}
 
 protected:
 	// connect to the address
@@ -89,7 +91,6 @@ protected:
 	// void connect_failed(int fd, const Identifier& id, const address& locator, shared_session& s);
 
 private:
-	std::pair<bool, shared_session> find_session(const Identifier& id);
 	void connect_callback(Identifier id, address locator, shared_session s, int fd, int err);
 
 private:
@@ -118,7 +119,7 @@ template <typename Identifier, typename IMPL>
 session_manager<Identifier, IMPL>::~session_manager() { }
 
 template <typename Identifier, typename IMPL>
-std::pair<bool, shared_session> session_manager<Identifier, IMPL>::find_session(const Identifier& id)
+std::pair<bool, shared_session> session_manager<Identifier, IMPL>::bind_session(const Identifier& id)
 {
 	pthread_scoped_lock lk(m_mutex);
 
@@ -134,7 +135,7 @@ std::pair<bool, shared_session> session_manager<Identifier, IMPL>::find_session(
 		//m_sessions.erase(pair.first++);  // session lost notify
 	}
 
-	shared_session s = static_cast<IMPL*>(this)->create_session(id);
+	shared_session s = static_cast<IMPL*>(this)->new_session(id);
 	m_sessions.insert( typename sessions_t::value_type(id, weak_session(s)) );
 
 	return std::make_pair(true, s);
@@ -143,25 +144,9 @@ std::pair<bool, shared_session> session_manager<Identifier, IMPL>::find_session(
 template <typename Identifier, typename IMPL>
 shared_session session_manager<Identifier, IMPL>::get_session(const Identifier& id)
 {
-	std::pair<bool, shared_session> bs = find_session(id);
+	std::pair<bool, shared_session> bs = bind_session(id);
 	const bool created = bs.first;
 	shared_session& s = bs.second;
-
-	if(created) {
-		static_cast<IMPL*>(this)->session_created(id, s);
-	}
-	return s;
-}
-
-template <typename Identifier, typename IMPL>
-template <typename F>
-shared_session session_manager<Identifier, IMPL>::bind_session(const Identifier& id, F func)
-{
-	std::pair<bool, shared_session> bs = find_session(id);
-	const bool created = bs.first;
-	shared_session& s = bs.second;
-
-	func(s);
 
 	if(created) {
 		static_cast<IMPL*>(this)->session_created(id, s);
@@ -199,7 +184,7 @@ void session_manager<Identifier, IMPL>::async_connect(const Identifier& id, cons
 	locator.getaddr((sockaddr*)&addrbuf);
 
 	using namespace mp::placeholders;
-	core::connect_thread(PF_INET, SOCK_STREAM, 0,  // FIXME connect_event
+	core::connect_thread(PF_INET, SOCK_STREAM, 0,  // FIXME connect_event?
 			(sockaddr*)addrbuf, sizeof(addrbuf),
 			m_connect_timeout,
 			mp::bind(

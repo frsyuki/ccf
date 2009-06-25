@@ -58,46 +58,7 @@ public:
 	~client() { }
 
 public:
-	// override session_manager::session_created
-	void session_created(const identifier_t& addr, shared_session s)
-	{
-		LOG_WARN("session created ",addr);
-		if(!s->is_connected() && addr.connectable()) {
-			LOG_WARN("connectiong to ",addr);
-			std::cout << "connect " << addr << std::endl;
-			async_connect(addr, addr, s);
-		}
-	}
-
-	// override session_manager::connect_success
-	void connect_success(int fd, const identifier_t& id, const address& locator, shared_session& s)
-	{
-		// FIXME atomic m_sessions, m_manager
-		// session_manager::bind_session
-		//bind_session(id, locator, core::add_handler<connection>(fd, this));
-		//FIXME bind_session(id, connect_success_callback(fd, this, locator));
-		core::add_handler<connection>(fd, this, s, locator);
-	}
-
-	// override session_manager::connect_failed
-	void connect_failed(int fd, const identifier_t& id, const address& locator, shared_session& s)
-	{ }
-
-	// override session_manager::session_unbound
-	void session_unbound(shared_session s)
-	{
-		// reconnect
-		address addr = static_cast<client_session*>(s.get())->addr();  // mp::static_pointer_cast<client_session>(s) ?
-		async_connect(addr, addr, s);
-	}
-
-	// override session_manager::create_session
-	shared_session create_session(const identifier_t& id)
-	{
-		return shared_session(new client_session(id, this));
-	}
-
-	// override session_manager::dispatch
+	// override basic_session_manager::dispatch
 	virtual void dispatch(shared_session from,
 			method_t method, msgobj param,
 			session_responder response, auto_zone& z)
@@ -105,12 +66,54 @@ public:
 		throw msgpack::type_error();
 	}
 
+protected:
+	friend class session_manager<address, client>;
+
+	// override session_manager::new_session
+	shared_session new_session(const identifier_t& id)
+	{
+		return shared_session(new client_session(id, this));
+	}
+
+	// override session_manager::session_created
+	void session_created(const identifier_t& id, shared_session s)
+	{
+		LOG_WARN("session created ",id);
+		if(!s->is_connected()) {
+			LOG_WARN("connectiong to ",id);
+			async_connect(id, id, s);
+		}
+	}
+
+	// override session_manager::session_unbound
+	void session_unbound(shared_session s)
+	{
+		// reconnect
+		address id = static_cast<client_session*>(s.get())->addr();
+		async_connect(id, id, s);
+	}
+
+	// override session_manager::connect_success
+	void connect_success(int fd, const identifier_t& id, const address& locator, shared_session& s)
+	{
+		core::add_handler<connection>(fd, this, s, locator);
+	}
+
+	// override session_manager::connect_failed
+	void connect_failed(int fd, const identifier_t& id, const address& locator, shared_session& s)
+	{ }
+
 public:
-	// FIXME needed?
-	//void accepted(int fd, const address& addr)
+	//void accepted(int fd, const address& addr_from)
 	//{
-	//	LOG_WARN("session created ",addr);
-	//	bind_session(addr, addr, core::add_handler<connection>(fd));
+	//	LOG_INFO("session created ",addr_from);
+	//	std::pair<bool, shared_session> bs = bind_session(addr_from);
+	//
+	//	core::add_handler<connection>(fd, this, bs.second, addr_from);
+	//
+	//	if(bs.first) {
+	//		session_created(addr_from, bs.second);
+	//	}
 	//}
 };
 

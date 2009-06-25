@@ -129,7 +129,7 @@ public:
 	}
 
 public:
-	// from framework::bind_session
+	// FIXME don't called
 	void session_rebind(shared_session s, const address& locator)
 	{
 		if(m_session) {

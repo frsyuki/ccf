@@ -226,6 +226,5 @@ inline msgpack::packer<Stream>& operator<< (msgpack::packer<Stream>& o, const ad
 
 }  // namespace ccf
 
-
 #endif /* ccf/address.h */
 
