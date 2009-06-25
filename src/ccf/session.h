@@ -59,8 +59,8 @@ public:
 			msgid_t msgid, auto_zone& z);
 
 	// add connection.
-	// from managed_connection::bind_session
-	void add_connection(int fd, const address& locator);
+	// from managed_connection::managed_connection
+	void add_connection(int fd);
 
 	// remove connection.
 	// from managed_connection::~managed_connection
@@ -99,14 +99,11 @@ protected:
 	void* m_cbtable;  // anonymous:session.cc
 
 	struct con_t {
-		con_t(int fd, const address& locator) :
-			m_fd(fd), m_locator(locator) { }
+		con_t(int fd) : m_fd(fd) { }
 	public:
 		int fd() const { return m_fd; }
-		address locator() const { return m_locator; }
 	private:
 		int m_fd;
-		address m_locator;
 	};
 
 	mp::pthread_mutex m_connections_mutex;

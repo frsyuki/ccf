@@ -288,11 +288,11 @@ void session::process_response(
 	e.callback(result, error, z);
 }
 
-void session::add_connection(int fd, const address& locator)
+void session::add_connection(int fd)
 {
 	m_connect_failed_count = 0;
 	pthread_scoped_lock clk(m_connections_mutex);
-	m_connections.push_back( con_t(fd, locator) );
+	m_connections.push_back( con_t(fd) );
 	if(!m_pending_queue.empty()) {
 		send_pending(clk);  // this unlocks clk
 	}

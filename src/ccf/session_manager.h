@@ -86,12 +86,14 @@ protected:
 	// connect to the address
 	// if connect succeeded, connect_success() is called.
 	// if connect failed and retry failed, connect_failed() is called?
-	void async_connect(const Identifier& id, const address& locator, shared_session& s);
-	// void connect_success(int fd, const Identifier& id, const address& locator, shared_session& s);
-	// void connect_failed(int fd, const Identifier& id, const address& locator, shared_session& s);
+	void async_connect(const Identifier& id, const address& addr_to, shared_session& s);
+	//void connect_success(int fd, const Identifier& id,
+	//		const address& addr_to, shared_session& s);
+	//void connect_failed(int fd, const Identifier& id,
+	//		const address& addr_to, shared_session& s);
 
 private:
-	void connect_callback(Identifier id, address locator, shared_session s, int fd, int err);
+	void connect_callback(Identifier id, address addr_to, shared_session s, int fd, int err);
 
 private:
 	mp::pthread_mutex m_mutex;
@@ -176,12 +178,13 @@ void session_manager<Identifier, IMPL>::step_timeout()
 
 
 template <typename Identifier, typename IMPL>
-void session_manager<Identifier, IMPL>::async_connect(const Identifier& id, const address& locator, shared_session& s)
+void session_manager<Identifier, IMPL>::async_connect(const Identifier& id,
+		const address& addr_to, shared_session& s)
 {
-	LOG_INFO("connecting to ",locator);
+	LOG_INFO("connecting to ",addr_to);
 
-	char addrbuf[locator.addrlen()];
-	locator.getaddr((sockaddr*)&addrbuf);
+	char addrbuf[addr_to.addrlen()];
+	addr_to.getaddr((sockaddr*)&addrbuf);
 
 	using namespace mp::placeholders;
 	core::connect_thread(PF_INET, SOCK_STREAM, 0,  // FIXME connect_event?
@@ -189,30 +192,30 @@ void session_manager<Identifier, IMPL>::async_connect(const Identifier& id, cons
 			m_connect_timeout,
 			mp::bind(
 				&session_manager<Identifier, IMPL>::connect_callback,
-				this, id, locator, s, _1, _2));
+				this, id, addr_to, s, _1, _2));
 }
 
 
 template <typename Identifier, typename IMPL>
-void session_manager<Identifier, IMPL>::connect_callback(Identifier id, address locator, shared_session s, int fd, int err)
+void session_manager<Identifier, IMPL>::connect_callback(Identifier id, address addr_to, shared_session s, int fd, int err)
 {
 	if(fd < 0) {
-		LOG_INFO("connect failed ",locator,": ",strerror(err));
+		LOG_INFO("connect failed ",addr_to,": ",strerror(err));
 		if(s->connect_failed() > m_connect_retry_limit) {
-			static_cast<IMPL*>(this)->connect_failed(fd, id, locator, s);
+			static_cast<IMPL*>(this)->connect_failed(fd, id, addr_to, s);
 		} else {
 			// retry connect
 			// FIXME: retry only when err == ETIMEDOUT?
-			async_connect(id, locator, s);
+			async_connect(id, addr_to, s);
 		}
 		return;
 	}
 
 	util::fd_setup(fd);
 
-	LOG_INFO("connect success ",locator," fd(",fd,")");
+	LOG_INFO("connect success ",addr_to," fd(",fd,")");
 	try {
-		static_cast<IMPL*>(this)->connect_success(fd, id, locator, s);
+		static_cast<IMPL*>(this)->connect_success(fd, id, addr_to, s);
 	} catch (...) {
 		::close(fd);
 		throw;

@@ -94,13 +94,15 @@ protected:
 	}
 
 	// override session_manager::connect_success
-	void connect_success(int fd, const identifier_t& id, const address& locator, shared_session& s)
+	void connect_success(int fd, const identifier_t& id,
+			const address& addr_to, shared_session& s)
 	{
-		core::add_handler<connection>(fd, this, s, locator);
+		core::add_handler<connection>(fd, this, s);
 	}
 
 	// override session_manager::connect_failed
-	void connect_failed(int fd, const identifier_t& id, const address& locator, shared_session& s)
+	void connect_failed(int fd, const identifier_t& id,
+			const address& addr_to, shared_session& s)
 	{ }
 
 public:
@@ -109,7 +111,7 @@ public:
 	//	LOG_INFO("session created ",addr_from);
 	//	std::pair<bool, shared_session> bs = bind_session(addr_from);
 	//
-	//	core::add_handler<connection>(fd, this, bs.second, addr_from);
+	//	core::add_handler<connection>(fd, this, bs.second);
 	//
 	//	if(bs.first) {
 	//		session_created(addr_from, bs.second);
@@ -120,9 +122,8 @@ public:
 
 class client::connection : public managed_connection<connection> {
 public:
-	connection(int fd, client* manager,
-			shared_session session, const address& locator) :
-		managed_connection<connection>(fd, manager, session, locator) { }
+	connection(int fd, client* manager, shared_session session) :
+		managed_connection<connection>(fd, manager, session) { }
 
 	~connection() { }
 

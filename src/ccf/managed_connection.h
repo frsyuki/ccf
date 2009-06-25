@@ -32,12 +32,11 @@ template <typename IMPL>
 class managed_connection : public rpc_connection<IMPL> {
 public:
 	managed_connection(int fd, basic_session_manager* manager,
-			shared_session session = shared_session(),
-			address locator = address()) :
+			shared_session session = shared_session()) :
 		rpc_connection<IMPL>(fd), m_manager(manager), m_session(session)
 	{
 		if(m_session) {
-			m_session->add_connection(rpc_connection<IMPL>::fd(), locator);
+			m_session->add_connection(rpc_connection<IMPL>::fd());
 		}
 	}
 
@@ -67,13 +66,13 @@ public:
 
 public:
 	// from framework::bind_session? FIXME
-	void session_rebind(shared_session s, const address& locator)
+	void session_rebind(shared_session s)
 	{
 		if(m_session) {
 			m_session->remove_connection(m_session, rpc_connection<IMPL>::fd());
 			m_session.reset();
 		}
-		m_session->add_connection(rpc_connection<IMPL>::fd(), locator);
+		m_session->add_connection(rpc_connection<IMPL>::fd());
 		m_session = s;
 	}
 
@@ -93,12 +92,11 @@ template <typename IMPL>
 class managed_state_connection : public state_connection<IMPL> {
 public:
 	managed_state_connection(int fd, basic_session_manager* manager,
-			shared_session session = shared_session(),
-			address locator = address()) :
+			shared_session session = shared_session()) :
 		state_connection<IMPL>(fd), m_manager(manager), m_session(session)
 	{
 		if(m_session) {
-			m_session->add_connection(state_connection<IMPL>::fd(), locator);
+			m_session->add_connection(state_connection<IMPL>::fd());
 		}
 	}
 
@@ -130,13 +128,13 @@ public:
 
 public:
 	// FIXME don't called
-	void session_rebind(shared_session s, const address& locator)
+	void session_rebind(shared_session s)
 	{
 		if(m_session) {
 			m_session->remove_connection(m_session, connection<IMPL>::fd());
 			m_session.reset();
 		}
-		m_session->add_connection(connection<IMPL>::fd(), locator);
+		m_session->add_connection(connection<IMPL>::fd());
 		m_session = s;
 	}
 
