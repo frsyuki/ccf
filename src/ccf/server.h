@@ -31,8 +31,7 @@ namespace ccf {
 
 class peer : public session {
 public:
-	peer(const address& peeraddr,
-			basic_session_manager* manager) :
+	peer(const address& peeraddr, basic_session_manager* manager) :
 		session(manager), m_peeraddr(peeraddr) { }
 
 public:

@@ -87,6 +87,7 @@ public:
 	}
 
 	typedef address* iterator;
+	typedef const address* const_iterator;
 
 	address* begin() { return m_begin; }
 	const address* begin() const { return m_begin; }

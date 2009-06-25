@@ -1,5 +1,5 @@
 //
-// ccf::client - Cluster Communication Framework
+// ccf::mhclient - Cluster Communication Framework
 //
 // Copyright (C) 2009 FURUHASHI Sadayuki
 //
@@ -15,10 +15,10 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 //
-#ifndef CCF_CLIENT_H__
-#define CCF_CLIENT_H__
+#ifndef CCF_MHCLIENT_H__
+#define CCF_MHCLIENT_H__
 
-#include "ccf/address.h"
+#include "ccf/maddress.h"
 #include "ccf/session_manager.h"
 #include "ccf/managed_connection.h"
 #include <mp/pthread.h>
@@ -27,34 +27,34 @@
 namespace ccf {
 
 
-class client_session : public session {
+class mhclient_session : public session {
 public:
-	client_session(const address& addr, basic_session_manager* manager) :
-		session(manager), m_addr(addr) { }
+	mhclient_session(const maddress& maddr, basic_session_manager* manager) :
+		session(manager), m_maddr(maddr) { }
 
 public:
-	const address& addr() const { return m_addr; }
+	const maddress& maddr() const { return m_maddr; }
 
 private:
-	address m_addr;
+	maddress m_maddr;
 
 private:
-	client_session();
-	client_session(const client_session&);
+	mhclient_session();
+	mhclient_session(const mhclient_session&);
 };
 
-typedef mp::shared_ptr<client_session> shared_client_session;
-typedef mp::weak_ptr<client_session>   weak_client_session;
+typedef mp::shared_ptr<mhclient_session> shared_client_session;
+typedef mp::weak_ptr<mhclient_session>   weak_client_session;
 
 
-class client : public session_manager<address, client> {
+class mhclient : public session_manager<maddress, mhclient> {
 public:
 	class connection;
 	class listener;
 
 public:
-	client() { }
-	~client() { }
+	mhclient() { }
+	~mhclient() { }
 
 public:
 	// override basic_session_manager::dispatch
@@ -66,21 +66,23 @@ public:
 	}
 
 protected:
-	friend class session_manager<address, client>;
+	friend class session_manager<maddress, mhclient>;
 
 	// override session_manager::new_session
 	shared_session new_session(const identifier_t& id)
 	{
-		return shared_session(new client_session(id, this));
+		return shared_session(new mhclient_session(id, this));
 	}
 
 	// override session_manager::session_created
 	void session_created(const identifier_t& id, shared_session s)
 	{
-		LOG_WARN("session created ",id);
-		if(!s->is_connected()) {
-			LOG_WARN("connectiong to ",id);
-			async_connect(id, id, s);
+		//LOG_WARN("session created ",id);  // FIXME operator<< maddress
+		if(s->is_connected()) { return; }
+		for(identifier_t::const_iterator it(id.begin()), it_end(id.end());
+				it != it_end; ++it) {
+			LOG_WARN("connectiong to ",*it);
+			async_connect(id, *it, s);
 		}
 	}
 
@@ -88,8 +90,11 @@ protected:
 	void session_unbound(shared_session s)
 	{
 		// reconnect
-		address id = static_cast<client_session*>(s.get())->addr();
-		async_connect(id, id, s);
+		const maddress& id = static_cast<mhclient_session*>(s.get())->maddr();
+		for(identifier_t::const_iterator it(id.begin()), it_end(id.end());
+				it != it_end; ++it) {
+			async_connect(id, *it, s);
+		}
 	}
 
 	// override session_manager::connect_success
@@ -110,7 +115,7 @@ public:
 	//	LOG_INFO("session created ",addr_from);
 	//	std::pair<bool, shared_session> bs = bind_session(addr_from);
 	//
-	//	core::add_handler<connection>(fd, this, bs.second);
+	//	core::add_handler<connection>(fd, this, bs.second, addr_from);
 	//
 	//	if(bs.first) {
 	//		session_created(addr_from, bs.second);
@@ -119,9 +124,9 @@ public:
 };
 
 
-class client::connection : public managed_connection<connection> {
+class mhclient::connection : public managed_connection<connection> {
 public:
-	connection(int fd, client* manager, shared_session session) :
+	connection(int fd, mhclient* manager, shared_session session) :
 		managed_connection<connection>(fd, manager, session) { }
 
 	~connection() { }
@@ -134,5 +139,5 @@ private:
 
 }  // namespace ccf
 
-#endif /* ccf/client.h */
+#endif /* ccf/mhclient.h */
 
