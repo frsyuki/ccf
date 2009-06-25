@@ -23,8 +23,6 @@
 #include "ccf/managed_connection.h"
 #include "ccf/listener.h"
 #include "ccf/service.h"
-#include <mp/pthread.h>
-#include <map>
 
 namespace ccf {
 
@@ -105,7 +103,7 @@ public:
 	// from server_listener::accepted
 	void accepted(int fd, const address& addr_from)
 	{
-		LOG_INFO("session created ",addr_from);
+		LOG_INFO("accepted ",addr_from);
 		std::pair<bool, shared_session> bs = bind_session(addr_from);
 
 		core::add_handler<connection>(fd, this, bs.second);

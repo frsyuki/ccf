@@ -21,8 +21,6 @@
 #include "ccf/address.h"
 #include "ccf/session_manager.h"
 #include "ccf/managed_connection.h"
-#include <mp/pthread.h>
-#include <map>
 
 namespace ccf {
 
@@ -107,7 +105,6 @@ protected:
 public:
 	//void accepted(int fd, const address& addr_from)
 	//{
-	//	LOG_INFO("session created ",addr_from);
 	//	std::pair<bool, shared_session> bs = bind_session(addr_from);
 	//
 	//	core::add_handler<connection>(fd, this, bs.second);

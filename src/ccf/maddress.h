@@ -101,6 +101,11 @@ public:
 	address* end() { return m_end; }
 	const address* end() const { return m_end; }
 
+public:
+	maddress(const maddress&);  // FIXME
+	bool operator< (const maddress&) const;  // FIXME
+	bool operator== (const maddress&) const;  // FIXME
+
 private:
 	void expand(size_t req);
 
