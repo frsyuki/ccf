@@ -77,10 +77,10 @@ protected:
 	// override session_manager::session_created
 	void session_created(const identifier_t& id, shared_session s)
 	{
-		//LOG_WARN("session created ",id);  // FIXME operator<< maddress
+		LOG_WARN("session created ",id);
 		if(s->is_connected()) { return; }
-		for(identifier_t::const_iterator it(id.begin()), it_end(id.end());
-				it != it_end; ++it) {
+		for(identifier_t::const_iterator it(id.begin()),
+				it_end(id.end()); it != it_end; ++it) {
 			LOG_WARN("connectiong to ",*it);
 			async_connect(id, *it, s);
 		}
@@ -91,8 +91,8 @@ protected:
 	{
 		// reconnect
 		const maddress& id = static_cast<mhclient_session*>(s.get())->maddr();
-		for(identifier_t::const_iterator it(id.begin()), it_end(id.end());
-				it != it_end; ++it) {
+		for(identifier_t::const_iterator it(id.begin()),
+				it_end(id.end()); it != it_end; ++it) {
 			async_connect(id, *it, s);
 		}
 	}

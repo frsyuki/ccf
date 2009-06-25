@@ -20,6 +20,7 @@
 
 #include "ccf/address.h"
 #include <stdlib.h>
+#include <iostream>
 
 #include <vector>
 
@@ -51,6 +52,11 @@ public:
 		}
 		*m_end = a;
 		++m_end;
+	}
+
+	bool empty() const
+	{
+		return m_begin == m_end;
 	}
 
 	size_t size() const
@@ -105,6 +111,8 @@ private:
 	address m_fixbuf[CCF_MADDRESS_FIXBUF_SIZE];
 };
 #endif
+
+std::ostream& operator<< (std::ostream& stream, const maddress& maddr);
 
 
 }  // namespace ccf

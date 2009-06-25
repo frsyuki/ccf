@@ -29,6 +29,21 @@ void maddress::expand(size_t req)
 }
 #endif
 
+std::ostream& operator<< (std::ostream& stream, const maddress& maddr)
+{
+	stream << '[';
+	if(!maddr.empty()) {
+		maddress::const_iterator it(maddr.begin());
+		stream << *it;
+		++it;
+		for(maddress::const_iterator it_end(maddr.end());
+				it != it_end; ++it) {
+			stream << ", " << *it;
+		}
+	}
+	stream << ']';
+}
+
 
 }  // namespace ccf
 
