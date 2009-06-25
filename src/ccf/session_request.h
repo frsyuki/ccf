@@ -21,6 +21,7 @@
 #include "ccf/types.h"
 #include "ccf/address.h"
 #include "ccf/retry.h"
+#include "ccf/session_responder.h"
 
 namespace ccf {
 

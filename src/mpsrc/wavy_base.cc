@@ -232,7 +232,7 @@ void coreimpl::operator() ()
 			}
 
 			if(!cont) {
-				int ret = m_port.shot_remove(e);
+				m_port.shot_remove(e);
 				reset_handler(ident);
 				goto retry;
 			}
@@ -259,7 +259,7 @@ void coreimpl::step_next()
 			m_cond.wait(m_mutex);
 		}
 		return;
-	} else if(m_task_queue.size() > MP_WAVY_TASK_QUEUE_LIMIT) {
+	} else if(!m_task_queue.empty()) {
 		do_task(lk);
 		return;
 	}

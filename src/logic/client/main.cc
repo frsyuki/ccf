@@ -13,15 +13,18 @@ public:
 
 std::auto_ptr<framework> net;
 
+int req = 0;
+
 void cb_Get(ccf::msgobj res, ccf::msgobj err, ccf::auto_zone z, int* context)
 {
 	LOG_INFO("Get callback: res=",res," err=",err," context=",*context);
+	if(--req == 0) { ccf::service::end(); }
 }
 
 void cb_Set(ccf::msgobj res, ccf::msgobj err, ccf::auto_zone z, int* context)
 {
 	LOG_INFO("Set callback: res=",res," err=",err," context=",*context);
-	ccf::service::end();
+	if(--req == 0) { ccf::service::end(); }
 }
 
 void init(ccf::address conf_addr)
@@ -37,9 +40,11 @@ void init(ccf::address conf_addr)
 
 	server::Set set("test", "test");
 	session->call(set, life, mp::bind(cb_Set, _1, _2, _3, context));
+	++req;
 
 	server::Get get("test");
 	session->call(get, life, mp::bind(cb_Get, _1, _2, _3, context));
+	++req;
 }
 
 }  // namespace client
@@ -58,10 +63,10 @@ int main(int argc, char* argv[])
 
 	client::init( ccf::address(addr) );
 
-	ccf::service::start(4);  // 4 threads
-	ccf::service::join();
-	//while(!ccf::service::is_end()) {
-	//	ccf::service::step_next();
-	//}
+	//ccf::service::start(4);  // 4 threads
+	//ccf::service::join();
+	while(!ccf::service::is_end()) {
+		ccf::service::step_next();
+	}
 }
 

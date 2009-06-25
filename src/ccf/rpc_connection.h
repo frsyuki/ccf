@@ -53,8 +53,11 @@ public:
 
 	void process_response(msgobj result, msgobj error, msgid_t msgid, auto_zone z);
 
+	void process_stream(msgobj method, msgobj param, msgid_t msgid, auto_zone z);
+
 protected:
 	msgpack::unpacker m_pac;
+	bool m_stream_mode;
 
 private:
 	rpc_connection();
@@ -64,7 +67,7 @@ private:
 
 template <typename IMPL>
 rpc_connection<IMPL>::rpc_connection(int fd) :
-	connection<IMPL>(fd) { }
+	connection<IMPL>(fd), m_stream_mode(false) { }
 
 template <typename IMPL>
 rpc_connection<IMPL>::~rpc_connection() { }
