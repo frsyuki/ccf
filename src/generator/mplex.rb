@@ -44,12 +44,9 @@ class Mplex
 	private
 	def self.with_context(context, output, &block)
 		context ||= Object.new
-		save = context.instance_variable_get(:@_mplexout)
 		context.instance_variable_set(:@_mplexout, output)
 		block.call(context)
-		output = context.instance_variable_get(:@_mplexout)
-		context.instance_variable_set(:@_mplexout, save)
-		output
+		context.instance_eval { remove_instance_variable(:@_mplexout) }
 	end
 
 	def self.compile(src)
@@ -64,7 +61,7 @@ class Mplex
 			c, l = t.split(/^[ \t]*%/,2)
 			(o << l; next) if l
 
-			c, a, b = t.split(/[ \t]*\%\|([a-z0-9\,]*)\|/,2)
+			c, a, b = t.split(/[ \t]*\%\|([a-z0-9\,\*\&\(\)]*)\|/,2)
 			t = "[%:#{b.strip} do |#{a}|%]#{c+"\n"}[%:end%]" if b
 
 			c, q = t.split(/[ \t]*\%\>/,2)
