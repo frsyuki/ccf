@@ -4,6 +4,7 @@ libccf_a_CPPFLAGS = -I..
 
 libccf_a_SOURCES = \
 		address.cc \
+		maddress.cc \
 		service.cc \
 		session.cc
 
