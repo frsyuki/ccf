@@ -50,7 +50,6 @@ typedef mp::shared_ptr<peer> shared_peer;
 typedef mp::weak_ptr<peer>   weak_peer;
 
 
-// FIXME multihome address
 class server : public session_manager<address, server> {
 public:
 	class connection;
@@ -60,36 +59,40 @@ public:
 	~server() { }
 
 public:
-	// override session_manager::session_created
-	void session_created(const identifier_t& addr, shared_session s)
+	// override basic_session_manager::dispatch
+	//virtual void dispatch(shared_session from,
+	//		method_t method, msgobj param,
+	//		session_responder response, auto_zone& z);
+
+protected:
+	friend class session_manager<address, server>;
+
+	// override session_manager::new_session
+	shared_session new_session(const identifier_t& id)
 	{
-		LOG_WARN("session created ",addr);
+		return shared_session(new peer(id, this));
+	}
+
+	// override session_manager::session_created
+	void session_created(const identifier_t& id, shared_session s)
+	{
+		LOG_WARN("session created ",id);
 		// FIXME needed?
-		//if(!s->is_connected() && addr.connectable()) {
-		//	LOG_WARN("connectiong to ",addr);
-		//	std::cout << "connect " << addr << std::endl;
-		//	async_connect(addr, addr, s);
+		//if(!s->is_connected() && id.connectable()) {
+		//	LOG_WARN("connectiong to ",id);
+		//	std::cout << "connect " << id << std::endl;
+		//	async_connect(id, id, s);
 		//}
 	}
 
-	// FIXME
-	struct connect_success_callback {
-		connect_success_callback(int fd_, server* manager_, const address& locator_) :
-			fd(fd_), manager(manager_), locator(locator_) { }
-		void operator() (shared_session s)
-		{
-			core::add_handler<connection>(fd, manager, s, locator);
-		}
-	private:
-		int fd;
-		server* manager;
-		const address& locator;
-	};
+	// override session_manager::session_unbound
+	void session_unbound(shared_session s)
+	{ }
 
+protected:
 	// override session_manager::connect_success
 	void connect_success(int fd, const identifier_t& id, const address& locator, shared_session& s)
 	{
-		//FIXME bind_session(id, connect_success_callback(fd, this, locator));
 		core::add_handler<connection>(fd, this, s, locator);
 	}
 
@@ -97,28 +100,18 @@ public:
 	void connect_failed(int fd, const identifier_t& id, const address& locator, shared_session& s)
 	{ }
 
-	// override session_manager::session_unbound
-	void session_unbound(shared_session s)
-	{ }
-
-	// override session_manager::create_session
-	shared_session create_session(const identifier_t& id)
-	{
-		return shared_session(new peer(id, this));
-	}
-
-	// override session_manager::dispatch
-	//virtual void dispatch(shared_session from,
-	//		method_t method, msgobj param,
-	//		session_responder response, auto_zone& z);
-
 public:
 	// from server_listener::accepted
-	void accepted(int fd, const address& addr)
+	void accepted(int fd, const address& addr_from)
 	{
-		LOG_WARN("session created ",addr);
-		bind_session(addr, connect_success_callback(fd, this, addr));
-		//bind_session(addr, addr, core::add_handler<connection>(fd, this));
+		LOG_INFO("session created ",addr_from);
+		std::pair<bool, shared_session> bs = bind_session(addr_from);
+
+		core::add_handler<connection>(fd, this, bs.second, addr_from);
+
+		if(bs.first) {
+			session_created(addr_from, bs.second);
+		}
 	}
 };
 
