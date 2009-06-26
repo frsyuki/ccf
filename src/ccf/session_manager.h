@@ -34,13 +34,8 @@ public:
 	virtual ~basic_session_manager() { }
 
 public:
+	// from session::remove_connection
 	virtual void session_unbound(shared_session s) = 0;
-
-	// called when message is received from managed connection.
-	// from managed_connection::dispatch
-	virtual void dispatch(shared_session from,
-			method_t method, msgobj param,
-			session_responder response, auto_zone& z) = 0;
 };
 
 

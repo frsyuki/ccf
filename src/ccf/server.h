@@ -62,10 +62,10 @@ public:
 	~server() { }
 
 public:
-	// override basic_session_manager::dispatch
-	//virtual void dispatch(shared_session from,
-	//		method_t method, msgobj param,
-	//		session_responder response, auto_zone& z);
+	// override me
+	//void dispatch(method_t method, msgobj param,
+	//		session_responder response,
+	//		const address& from, auto_zone& z);
 
 protected:
 	friend class session_manager<address, Framework>;
@@ -123,11 +123,24 @@ public:
 
 template <typename Framework>
 class server<Framework>::connection : public managed_connection<connection> {
+private:
+	typedef managed_connection<connection> base_t;
+
 public:
 	connection(int fd, Framework* manager, shared_session session) :
-		managed_connection<connection>(fd, manager, session) { }
+		base_t(fd, session), m_manager(manager) { }
 
 	~connection() { }
+
+	void dispatch(method_t method, msgobj param, msgid_t msgid, auto_zone z)
+	{
+		m_manager->dispatch(method, param,
+				session_responder(weak_session(base_t::m_session), msgid),
+				static_cast<peer*>(base_t::m_session.get())->peeraddr(), z);
+	}
+
+private:
+	Framework* m_manager;
 
 private:
 	connection();

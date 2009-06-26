@@ -31,9 +31,8 @@ namespace ccf {
 template <typename IMPL>
 class managed_connection : public rpc_connection<IMPL> {
 public:
-	managed_connection(int fd, basic_session_manager* manager,
-			shared_session session = shared_session()) :
-		rpc_connection<IMPL>(fd), m_manager(manager), m_session(session)
+	managed_connection(int fd, shared_session session = shared_session()) :
+		rpc_connection<IMPL>(fd), m_session(session)
 	{
 		if(m_session) {
 			m_session->add_connection(rpc_connection<IMPL>::fd());
@@ -52,9 +51,7 @@ public:
 			msgid_t msgid, auto_zone& z)
 	{
 		// FIXME !!m_session
-		m_manager->dispatch(m_session, method, param,
-				session_responder(weak_session(m_session), msgid),
-				z);
+		static_cast<IMPL*>(this)->dispatch(method, param, msgid, z);
 	}
 
 	void process_response(msgobj result, msgobj error,
@@ -77,9 +74,6 @@ public:
 	}
 
 protected:
-	// from cluster::connection::get_manager
-	basic_session_manager* m_manager;
-
 	shared_session m_session;
 
 private:
@@ -91,9 +85,8 @@ private:
 template <typename IMPL>
 class managed_state_connection : public state_connection<IMPL> {
 public:
-	managed_state_connection(int fd, basic_session_manager* manager,
-			shared_session session = shared_session()) :
-		state_connection<IMPL>(fd), m_manager(manager), m_session(session)
+	managed_state_connection(int fd, shared_session session = shared_session()) :
+		state_connection<IMPL>(fd), m_session(session)
 	{
 		if(m_session) {
 			m_session->add_connection(state_connection<IMPL>::fd());
@@ -114,9 +107,7 @@ public:
 			msgid_t msgid, auto_zone z)
 	{
 		// FIXME !!m_session
-		m_manager->dispatch(m_session, method, param,
-				session_responder(weak_session(m_session), msgid),
-				z);
+		static_cast<IMPL*>(this)->dispatch(method, param, msgid, z);
 	}
 
 	void process_response(msgobj result, msgobj error,
@@ -139,9 +130,6 @@ public:
 	}
 
 protected:
-	// from cluster::connection::get_manager
-	basic_session_manager* m_manager;
-
 	shared_session m_session;
 
 private:

@@ -70,17 +70,29 @@ public:
 	node_info_t& self() { return m_self; }
 
 public:
-	// get server interface.
+	// server subsystem interface
+	class subsys : public server<subsys> {
+	public:
+		subsys() { }
+		~subsys() { }
+
+	private:
+		subsys(const subsys&);
+	};
+
+	// get subsystem interface.
 	// it manages non-cluster clients.
-	server& subsystem() { return m_subsystem; }
+	subsys& subsystem() { return m_subsystem; }
 
-	//virtual void cluster_dispatch(shared_node from,
-	//		method_t method, msgobj param,
-	//		session_responder response, auto_zone& z) = 0;
+	// override me
+	//void cluster_dispatch(method_t method, msgobj param,
+	//		session_responder response,
+	//		const NodeInfo& from, auto_zone& z);
 
-	//virtual void subsys_dispatch(shared_peer from,
-	//		method_t method, msgobj param,
-	//		session_responder response, auto_zone& z) = 0;
+	// override me
+	//void subsys_dispatch(method_t method, msgobj param,
+	//		session_responder response,
+	//		const address& from, auto_zone& z);
 
 protected:
 	friend class session_manager<NodeInfo, Framework>;
@@ -119,14 +131,6 @@ protected:
 			const address& addr_to, shared_session& s)
 	{ }
 
-	// override session_manager::dispatch
-	void dispatch(shared_session from,
-			method_t method, msgobj param,
-			session_responder response, auto_zone& z)
-	{
-		throw std::logic_error("cluster::dispatch called");
-	}
-
 private:
 	inline void async_connect_all(const identifier_t& id, shared_session& s)
 	{
@@ -148,7 +152,7 @@ public:
 		LOG_WARN("session created ",addr_from);
 		// FIXME
 		//   1. core::add_handler<connection>(fd, this);
-		//   2. connection::process_init(): get_manager()->bind_session(id, addr, this);
+		//   2. connection::process_init(): m_manager->bind_session(id, addr, this);
 		//bind_session(addr, addr, core::add_handler<connection>(fd, this));
 		//bind_session(addr, connect_success_callback(fd, this, addr));
 		//bind_session(addr, addr, core::add_handler<connection>(fd, this));
@@ -168,24 +172,6 @@ private:
 	friend class connection;
 
 private:
-	class subsys : public server {
-	public:
-		subsys() { }
-		~subsys() { }
-
-	public:
-		// override session_manager::dispatch
-		void dispatch(shared_session from,
-				method_t method, msgobj param,
-				session_responder response, auto_zone& z)
-		{
-			throw std::logic_error("subsys::dispatch called");
-		}
-
-	private:
-		subsys(const subsys&);
-	};
-
 	subsys m_subsystem;
 
 private:
@@ -230,18 +216,13 @@ private:
 
 	void subsys_state(msgobj msg, auto_zone z);
 
-	inline Framework* get_manager()
-	{
-		// managed_connection::m_manager
-		return static_cast<Framework*>(base_t::m_manager);
-	}
-
 	void send_init()
 	{
-		send_init_mixin::send_init(base_t::fd(), get_manager());
+		send_init_mixin::send_init(base_t::fd(), m_manager);
 	}
 
 private:
+	Framework* m_manager;
 	address m_peer_addr;
 
 	connection();
@@ -287,14 +268,14 @@ template <typename NodeInfo, typename Framework>
 cluster<NodeInfo, Framework>::connection::connection(int fd, Framework* manager,
 		const address& peer_addr) :
 	send_init_mixin(), // don't send init
-	base_t(fd, manager), m_peer_addr(peer_addr)
+	base_t(fd), m_manager(manager), m_peer_addr(peer_addr)
 { }
 
 template <typename NodeInfo, typename Framework>
 cluster<NodeInfo, Framework>::connection::connection(int fd, Framework* manager,
 		shared_session session) :
 	send_init_mixin(fd, manager),  // send init
-	base_t(fd, manager, session)
+	base_t(fd, session), m_manager(manager)
 { }
 
 
@@ -321,7 +302,7 @@ void cluster<NodeInfo, Framework>::connection::process_init(msgobj msg, auto_zon
 		LOG_DEBUG("enter subsys state");
 		if(base_t::m_session) { throw msgpack::type_error(); }
 
-		base_t::session_rebind( get_manager()->subsystem().get_session(m_peer_addr) );
+		base_t::session_rebind( m_manager->subsystem().get_session(m_peer_addr) );
 
 		set_process(&connection::subsys_state);
 
@@ -337,7 +318,7 @@ void cluster<NodeInfo, Framework>::connection::process_init(msgobj msg, auto_zon
 
 	if(!base_t::m_session) {
 		send_init();
-		get_manager()->bind_connection(*this, init.info());
+		m_manager->bind_connection(*this, init.info());
 	}
 
 	set_process(&connection::cluster_state);
@@ -353,10 +334,9 @@ void cluster<NodeInfo, Framework>::connection::subsys_state(msgobj msg, auto_zon
 	switch(rpc.type()) {
 	case message_code::REQUEST: {
 			message_request<msgobj> req; msg.convert(&req);
-			get_manager()->subsys_dispatch(
-					mp::static_pointer_cast<peer>(base_t::m_session),
-					req.method(), req.param(),
-					session_responder(weak_session(base_t::m_session), req.msgid()), z);
+			m_manager->subsys_dispatch(req.method(), req.param(),
+					session_responder(weak_session(base_t::m_session), req.msgid()),
+					static_cast<peer*>(base_t::m_session.get())->peeraddr(), z);
 		}
 		break;
 
@@ -382,10 +362,9 @@ void cluster<NodeInfo, Framework>::connection::cluster_state(msgobj msg, auto_zo
 	switch(rpc.type()) {
 	case message_code::REQUEST: {
 			message_request<msgobj> req; msg.convert(&req);
-			get_manager()->cluster_dispatch(
-					mp::static_pointer_cast<node_t>(base_t::m_session),
-					req.method(), req.param(),
-					session_responder(weak_session(base_t::m_session), req.msgid()), z);
+			m_manager->cluster_dispatch(req.method(), req.param(),
+					session_responder(weak_session(base_t::m_session), req.msgid()),
+					static_cast<node_t*>(base_t::m_session.get())->info(), z);
 		}
 		break;
 
