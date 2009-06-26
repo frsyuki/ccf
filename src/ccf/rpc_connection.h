@@ -98,18 +98,18 @@ inline void rpc_connection<IMPL>::process_response(msgobj result, msgobj error,
 template <typename IMPL>
 void rpc_connection<IMPL>::process_message(msgobj msg, auto_zone z)
 {
-	rpc_message rpc(msg.convert());
+	rpc_message rpc; msg.convert(&rpc);
 
 	switch(rpc.type()) {
 	case message_code::REQUEST: {
-			message_request<msgobj> req(msg.convert());
+			message_request<msgobj> req; msg.convert(&req);
 			static_cast<IMPL*>(this)->process_request(
 					req.method(), req.param(), req.msgid(), z);
 		}
 		break;
 
 	case message_code::RESPONSE: {
-			message_response<msgobj, msgobj> res(msg.convert());
+			message_response<msgobj, msgobj> res; msg.convert(&res);
 			static_cast<IMPL*>(this)->process_response(
 					res.result(), res.error(), res.msgid(), z);
 		}

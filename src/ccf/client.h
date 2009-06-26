@@ -48,7 +48,6 @@ typedef mp::weak_ptr<client_session>   weak_client_session;
 class client : public session_manager<address, client> {
 public:
 	class connection;
-	class listener;
 
 public:
 	client() { }

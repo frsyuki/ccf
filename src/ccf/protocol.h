@@ -113,6 +113,27 @@ struct message_response : msgpack::define<
 };
 
 
+template <typename NodeInfo>
+struct message_init : msgpack::define<
+			msgpack::type::tuple<rpc_type_t, NodeInfo> > {
+
+	typedef NodeInfo node_info_t;
+	typedef message_init<node_info_t> this_t;
+
+	message_init() { }
+
+	message_init(
+			typename msgpack::type::tuple_type<node_info_t>::transparent_reference info) :
+		this_t::define_type(typename this_t::msgpack_type(
+					message_code::INIT,
+					info
+					)) { }
+
+	typename msgpack::type::tuple_type<node_info_t>::const_reference
+	info() const { return this_t::msgpack_type::template get<1>(); }
+};
+
+
 }  // namespace ccf
 
 #endif /* ccf/protocol.h */
