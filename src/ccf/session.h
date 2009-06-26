@@ -21,6 +21,7 @@
 #include "ccf/types.h"
 #include "ccf/protocol.h"
 #include "ccf/address.h"
+#include "ccf/service.h"
 #include <cclog/cclog.h>
 #include <mp/memory.h>
 #include <mp/functional.h>
@@ -56,6 +57,11 @@ public:
 			shared_zone life, callback_t callback,
 			unsigned short timeout_steps = 10);
 
+	template <typename Message>
+	void call_stream(Message& params, core::xfer* stream,
+			shared_zone life, callback_t callback,
+			unsigned short timeout_steps = 10);
+
 	// process RPC response.
 	// from managed_connection::process_response
 	void process_response(
@@ -80,22 +86,17 @@ public:
 
 	// from session_responder::call
 	// from call_real
-	void send_datav(std::auto_ptr<msgpack::vrefbuffer> buffer,
-			shared_zone life);
-
-	// from session_responder::call
-	void send_data(msgpack::sbuffer& buffer,
-			shared_zone life);
+	void send_data(core::xfer* xf);
 
 protected:
 	void force_lost(msgobj res, msgobj err);
 
 protected:
 	template <typename Message>
-	msgid_t pack(msgpack::vrefbuffer& buffer, Message& param);
+	msgid_t pack(msgpack::vrefbuffer& buf, Message& param);
 
-	void call_real(msgid_t msgid, std::auto_ptr<msgpack::vrefbuffer> buffer,
-			shared_zone life, callback_t callback, unsigned short timeout_steps);
+	void call_real(core::xfer* xf, unsigned short timeout_steps,
+			msgid_t msgid, callback_t callback, shared_zone life);
 
 protected:
 	msgid_t m_msgid_rr;
@@ -120,18 +121,10 @@ private:
 	// Note: this funciton unlocks clk
 	void send_pending(pthread_scoped_lock& clk);
 
-	struct pending_t {
-		pending_t(const struct iovec* vec_, size_t veclen_, shared_zone life_) :
-			vec(vec_), veclen(veclen_), life(life_) { }
-		pending_t() { }
-		~pending_t() { }
-		const struct iovec* vec;
-		size_t veclen;
-		shared_zone life;
-	};
+	typedef mp::shared_ptr<core::xfer> shared_xfer;
+	typedef std::vector<shared_xfer> pending_queue_t;
 
 	mp::pthread_mutex m_pending_queue_mutex;
-	typedef std::vector<pending_t> pending_queue_t;
 	pending_queue_t m_pending_queue;
 
 private:
@@ -144,11 +137,11 @@ private:
 
 
 template <typename Message>
-inline msgid_t session::pack(msgpack::vrefbuffer& buffer, Message& param)
+inline msgid_t session::pack(msgpack::vrefbuffer& buf, Message& param)
 {
 	msgid_t msgid = __sync_add_and_fetch(&m_msgid_rr, 1);
 	message_request<Message> msgreq(Message::method, param, msgid);
-	msgpack::pack(buffer, msgreq);
+	msgpack::pack(buf, msgreq);
 	return msgid;
 }
 
@@ -161,10 +154,42 @@ inline void session::call(
 {
 	LOG_DEBUG("send request method=",Message::method);
 
-	std::auto_ptr<msgpack::vrefbuffer> buffer(new msgpack::vrefbuffer());
-	msgid_t msgid = pack(*buffer, param);
+	std::auto_ptr<msgpack::vrefbuffer> buf(new msgpack::vrefbuffer());
+	msgid_t msgid = pack(*buf, param);
 
-	call_real(msgid, buffer, life, callback, timeout_steps);
+	core::xfer xf;
+	xf.push_writev(buf->vector(), buf->vector_size());
+	xf.push_finalize(buf);
+	if(life) {
+		xf.push_finalize(life);
+	}
+
+	call_real(&xf, timeout_steps, msgid, callback, life);
+}
+
+
+template <typename Message>
+inline void session::call_stream(
+		Message& param, core::xfer* stream,
+		shared_zone life, callback_t callback,
+		unsigned short timeout_steps)
+{
+	LOG_DEBUG("send request with stream method=",Message::method);
+
+	std::auto_ptr<msgpack::vrefbuffer> buf(new msgpack::vrefbuffer());
+	msgid_t msgid = pack(*buf, param);
+
+	core::xfer xf;
+	xf.push_writev(buf->vector(), buf->vector_size());
+	xf.push_finalize(buf);
+
+	stream->migrate(&xf);
+
+	if(life) {
+		xf.push_finalize(life);
+	}
+
+	call_real(&xf, timeout_steps, msgid, callback, life);
 }
 
 

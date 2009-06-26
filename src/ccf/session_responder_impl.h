@@ -47,8 +47,13 @@ void session_responder::call_impl(Result& res, Error& err, ZoneType& life)
 		return;  // Note: ignore error
 	}
 
-	// FIXME auto_zone
-	s->send_datav(buf, life);
+	core::xfer xf;
+	xf.push_writev(buf->vector(), buf->vector_size());
+	if(life) {
+		xf.push_finalize(life);
+	}
+
+	s->send_data(&xf);
 }
 
 template <typename Result, typename Error>
@@ -64,8 +69,11 @@ void session_responder::call(Result& res, Error& err)
 		return;  // Note: ignore error
 	}
 
-	shared_zone nullz;
-	s->send_data(buf, nullz);
+	core::xfer xf;
+	xf.push_write(buf.data(), buf.size());
+	xf.push_finalize(&::free, buf.data());  buf.release();
+
+	s->send_data(&xf);
 }
 
 template <typename Result, typename Error>

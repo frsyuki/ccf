@@ -77,11 +77,11 @@ public:
 		m_self->reset_stream_func(func);
 	}
 
-	stream& streaming() { return m_stream; }
-	const stream& streaming() const { return m_stream; }
+	ccf::stream& stream() { return m_stream; }
+	const ccf::stream& stream() const { return m_stream; }
 
 private:
-	stream m_stream;
+	ccf::stream m_stream;
 	basic_stream_connection* m_self;
 };
 

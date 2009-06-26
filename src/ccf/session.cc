@@ -354,11 +354,10 @@ void session::force_lost(msgobj res, msgobj err)
 }
 
 
-void session::call_real(msgid_t msgid, std::auto_ptr<msgpack::vrefbuffer> buffer,
-		shared_zone life, callback_t callback, unsigned short timeout_steps)
+void session::call_real(core::xfer* xf, unsigned short timeout_steps,
+		msgid_t msgid, callback_t callback, shared_zone life)
 {
 	//if(!life) { life.reset(new msgpack::zone()); }
-
 	ANON_m_cbtable->insert(msgid, callback_entry(callback, life, timeout_steps));
 
 	/* FIXME
@@ -369,25 +368,21 @@ void session::call_real(msgid_t msgid, std::auto_ptr<msgpack::vrefbuffer> buffer
 	}
 	*/
 
-	send_datav(buffer, life);
+	send_data(xf);
 }
 
 
-void session::send_datav(std::auto_ptr<msgpack::vrefbuffer> buffer,
-		shared_zone life)
+void session::send_data(core::xfer* xf)
 {
 	pthread_scoped_lock clk(m_connections_mutex);
 
 	if(m_connections.empty()) {
-		if(!life) { life.reset(new msgpack::zone()); }
 		pthread_scoped_lock plk(m_pending_queue_mutex);
+		LOG_TRACE("push pending ",m_pending_queue.size()+1);
 
-		life->push_finalizer(&mp::object_destructor<msgpack::vrefbuffer>, buffer.get());
-		msgpack::vrefbuffer* buf = buffer.release();
-
-		m_pending_queue.push_back(
-				pending_t(buf->vector(), buf->vector_size(), life)
-				);
+		shared_xfer sxf(new core::xfer());
+		xf->migrate(sxf.get());
+		m_pending_queue.push_back(sxf);
 		return;
 	}
 
@@ -397,46 +392,7 @@ void session::send_datav(std::auto_ptr<msgpack::vrefbuffer> buffer,
 	int fd = m_connections[0].fd();
 #endif
 	// FIXME clk.unlock() ?
-	if(life) {
-		life->push_finalizer(&mp::object_delete<msgpack::vrefbuffer>, buffer.get());
-		msgpack::vrefbuffer* buf = buffer.release();
-		core::writev(fd, buf->vector(), buf->vector_size(), life);
-	} else {
-		core::writev(fd, buffer->vector(), buffer->vector_size(), buffer);
-	}
-}
-
-void session::send_data(msgpack::sbuffer& buffer,
-		shared_zone life)
-{
-	pthread_scoped_lock clk(m_connections_mutex);
-
-	if(m_connections.empty()) {
-		if(!life) { life.reset(new msgpack::zone()); }
-		pthread_scoped_lock plk(m_pending_queue_mutex);
-
-		life->push_finalizer(&::free, buffer.data());
-		size_t size = buffer.size();
-		void* data  = buffer.release();
-
-		struct iovec *vec = (struct iovec*)life->malloc(
-				sizeof(struct iovec));
-		vec->iov_len  = size;
-		vec->iov_base = data;
-		m_pending_queue.push_back(
-				pending_t(vec, 1, life)
-				);
-		return;
-	}
-
-#ifndef NO_AD_HOC_CONNECTION_LOAD_BALANCE
-	int fd = m_connections[++m_msgid_rr % m_connections.size()].fd();
-#else
-	int fd = m_connections[0].fd();
-#endif
-	// FIXME clk.unlock() ?
-	core::write(fd, buffer.data(), buffer.size(), &::free, buffer.data());
-	buffer.release();
+	core::commit(fd, xf);
 }
 
 
@@ -456,7 +412,7 @@ void session::send_pending(pthread_scoped_lock& clk)
 #else
 		int fd = m_connections[0].fd();
 #endif
-		core::writev(fd, it->vec, it->veclen, it->life);
+		core::commit(fd, it->get());
 	}
 }
 
