@@ -9,7 +9,7 @@ namespace server {
 
 class framework : public ccf::cluster<ccf::address> {
 public:
-	framework() : ccf::cluster<ccf::address>(ccf::address()) { }
+	framework(ccf::address self) : ccf::cluster<ccf::address>(self) { }
 	~framework() { }
 
 	void dispatch(ccf::shared_session from,
@@ -48,9 +48,9 @@ SVR_IMPL(Set, req, zone)
 	req.result(true);
 }
 
-void init(int conf_sock)
+void init(ccf::address self, int conf_sock)
 {
-	net.reset(new framework());
+	net.reset(new framework(self));
 	ccf::core::add_handler<framework::listener>(conf_sock, net.get());
 }
 
@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
 	addr.sin_port = htons(3000);
 
 	ccf::scoped_listen lsock(addr);
-	server::init(lsock.get());
+	server::init(ccf::address(addr), lsock.get());
 
 	ccf::service::start(4);  // 4 threads
 	ccf::service::join();
