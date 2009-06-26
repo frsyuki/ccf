@@ -42,6 +42,7 @@ std::ostream& operator<< (std::ostream& stream, const maddress& maddr)
 		}
 	}
 	stream << ']';
+	return stream;
 }
 
 

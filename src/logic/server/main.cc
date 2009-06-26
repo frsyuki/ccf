@@ -1,5 +1,5 @@
 #include <ccf/service.h>
-#include <ccf/server.h>
+#include <ccf/cluster.h>
 #include <ccf/scoped_listen.h>
 #include <cclog/cclog_tty.h>
 #include "server/proto.h"
@@ -7,9 +7,9 @@
 
 namespace server {
 
-class framework : public ccf::server {
+class framework : public ccf::cluster<ccf::address> {
 public:
-	framework() { }
+	framework() : ccf::cluster<ccf::address>(ccf::address()) { }
 	~framework() { }
 
 	void dispatch(ccf::shared_session from,
@@ -17,6 +17,20 @@ public:
 			ccf::session_responder response, ccf::auto_zone& z)
 	{
 		::server::dispatch(from, method, param, response, z);
+	}
+
+	void cluster_dispatch(shared_node from,
+			ccf::method_t method, ccf::msgobj param,
+			ccf::session_responder response, ccf::auto_zone& z)
+	{
+		dispatch(from, method, param, response, z);
+	}
+
+	void subsys_dispatch(ccf::shared_peer from,
+			ccf::method_t method, ccf::msgobj param,
+			ccf::session_responder response, ccf::auto_zone& z)
+	{
+		dispatch(from, method, param, response, z);
 	}
 };
 
@@ -37,7 +51,7 @@ SVR_IMPL(Set, req, zone)
 void init(int conf_sock)
 {
 	net.reset(new framework());
-	ccf::core::add_handler<ccf::server_listener>(conf_sock, net.get());
+	ccf::core::add_handler<framework::listener>(conf_sock, net.get());
 }
 
 }  // namespace server
