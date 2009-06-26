@@ -26,7 +26,7 @@
 #include <netinet/in.h>
 
 // FIXME
-//#include <msgpack.hpp>
+#include <msgpack.hpp>
 
 namespace ccf {
 
