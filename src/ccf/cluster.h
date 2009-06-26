@@ -130,6 +130,9 @@ protected:
 private:
 	inline void async_connect_all(const identifier_t& id, shared_session& s)
 	{
+		if(id.connectable()) {
+			async_connect(id, id, s);
+		}
 		/* FIXME node_info_t
 		for(identifier_t::const_iterator it(id.begin()),
 				it_end(id.end()); it != it_end; ++it) {
@@ -175,11 +178,28 @@ private:
 
 private:
 	NodeInfo m_self;
+
+	struct send_init_mixin;
 };
 
 
 template <typename NodeInfo>
-class cluster<NodeInfo>::connection : public managed_state_connection<connection> {
+struct cluster<NodeInfo>::send_init_mixin {
+	typedef cluster<NodeInfo> cluster_t;
+
+	send_init_mixin() { }
+
+	send_init_mixin(int fd, cluster_t* manager)
+	{
+		send_init(fd, manager);
+	}
+
+	void send_init(int fd, cluster_t* manager);
+};
+
+
+template <typename NodeInfo>
+class cluster<NodeInfo>::connection : protected send_init_mixin, public managed_state_connection<connection> {
 private:
 	typedef cluster<NodeInfo> cluster_t;
 	typedef managed_state_connection<connection> base_t;
@@ -207,7 +227,10 @@ private:
 		return static_cast<cluster_t*>(base_t::m_manager);
 	}
 
-	void send_init();
+	void send_init()
+	{
+		send_init_mixin::send_init(base_t::fd(), get_manager());
+	}
 
 private:
 	address m_peer_addr;
@@ -255,25 +278,26 @@ private:
 template <typename NodeInfo>
 cluster<NodeInfo>::connection::connection(int fd, cluster_t* manager,
 		const address& peer_addr) :
-	base_t(fd, manager), m_peer_addr(peer_addr) { }
+	send_init_mixin(), // don't send init
+	base_t(fd, manager), m_peer_addr(peer_addr)
+{ }
 
 template <typename NodeInfo>
 cluster<NodeInfo>::connection::connection(int fd, cluster_t* manager,
 		shared_session session) :
+	send_init_mixin(fd, manager),  // send init
 	base_t(fd, manager, session)
-{
-	set_process(&connection::cluster_state);
-}
+{ }
 
 
 template <typename NodeInfo>
-void cluster<NodeInfo>::connection::send_init()
+void cluster<NodeInfo>::send_init_mixin::send_init(int fd, cluster_t* manager)
 {
-	message_init<const node_info_t&> init(get_manager()->self());
+	message_init<const node_info_t&> init(manager->self());
 	msgpack::sbuffer buf;
 	msgpack::pack(buf, init);
 
-	core::write(base_t::fd(), buf.data(), buf.size(), &::free, buf.data());
+	core::write(fd, buf.data(), buf.size(), &::free, buf.data());
 	buf.release();
 	LOG_TRACE("sent init message");
 }
@@ -287,6 +311,7 @@ void cluster<NodeInfo>::connection::process_init(msgobj msg, auto_zone z)
 	if(!rpc.is_init()) {
 		// subsys
 		LOG_DEBUG("enter subsys state");
+		if(base_t::m_session) { throw msgpack::type_error(); }
 
 		base_t::session_rebind( get_manager()->subsystem().get_session(m_peer_addr) );
 
@@ -302,14 +327,16 @@ void cluster<NodeInfo>::connection::process_init(msgobj msg, auto_zone z)
 
 	LOG_TRACE("receive init message: "/*,init.info()*/);
 
-	send_init();
+	if(!base_t::m_session) {
+		send_init();
 
-	// FIXME move this into cluster::bind_connection
-	// FIXME try/catch?
-	std::pair<bool, shared_session> bs = get_manager()->bind_session(init.info());
-	base_t::session_rebind(bs.second);
-	if(bs.first) {
-		get_manager()->session_created(init.info(), bs.second);
+		// FIXME move this into cluster::bind_connection
+		// FIXME try/catch?
+		std::pair<bool, shared_session> bs = get_manager()->bind_session(init.info());
+		base_t::session_rebind(bs.second);
+		if(bs.first) {
+			get_manager()->session_created(init.info(), bs.second);
+		}
 	}
 
 	set_process(&connection::cluster_state);
