@@ -196,7 +196,10 @@ void coreimpl::operator() ()
 
 			if(num <= 0) {
 				if(num == 0 || errno == EINTR || errno == EAGAIN) {
-					if(m_end_flag) { return; }
+					if(m_end_flag) {
+						m_pollable = true;
+						return;
+					}
 					goto retry_poll;
 				} else {
 					throw system_error(errno, "wavy core event failed");
@@ -271,6 +274,7 @@ void coreimpl::step_next()
 		int num = m_port.wait(&m_backlog, 1000);
 		if(num <= 0) {
 			if(num == 0 || errno == EINTR || errno == EAGAIN) {
+				m_pollable = true;
 				return;
 			} else {
 				throw system_error(errno, "wavy core event failed");
