@@ -50,6 +50,7 @@ typedef mp::weak_ptr<peer>   weak_peer;
 class server : public session_manager<address, server> {
 public:
 	class connection;
+	class listener;
 
 public:
 	server() { }
@@ -100,7 +101,7 @@ protected:
 	{ }
 
 public:
-	// from server_listener::accepted
+	// from listener::accepted
 	void accepted(int fd, const address& addr_from)
 	{
 		LOG_INFO("accepted ",addr_from);
@@ -128,13 +129,13 @@ private:
 };
 
 
-class server_listener : public listener<server_listener> {
+class server::listener : public ccf::listener<server::listener> {
 public:
-	server_listener(int fd, server* manager) :
-		listener<server_listener>(fd),
+	listener(int fd, server* manager) :
+		ccf::listener<server::listener>(fd),
 		m_manager(manager) { }
 
-	~server_listener() { }
+	~listener() { }
 
 public:
 	void closed()
@@ -153,8 +154,8 @@ private:
 	server* m_manager;
 
 private:
-	server_listener();
-	server_listener(const server_listener&);
+	listener();
+	listener(const listener&);
 };
 
 
