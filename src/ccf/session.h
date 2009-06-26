@@ -23,9 +23,13 @@
 #include "ccf/address.h"
 #include <cclog/cclog.h>
 #include <mp/memory.h>
+#include <mp/functional.h>
 #include <msgpack/vrefbuffer.hpp>
 
 namespace ccf {
+
+
+typedef mp::function<void (msgobj, msgobj, auto_zone)> callback_t;
 
 
 class basic_session_manager;

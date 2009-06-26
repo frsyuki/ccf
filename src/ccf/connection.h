@@ -56,6 +56,17 @@ public:
 
 	// void process_message(msgpack::object msg, auto_zone z);
 
+public:
+	msgpack::unpacker& buffer()
+	{
+		return m_pac;
+	}
+
+	const msgpack::unpacker& buffer() const
+	{
+		return m_pac;
+	}
+
 protected:
 	msgpack::unpacker m_pac;
 

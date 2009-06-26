@@ -24,41 +24,66 @@
 namespace ccf {
 
 
-template <typename IMPL>
-class stream_connection : public connection<IMPL> {
+class basic_stream_connection {
 public:
-	stream_connection(int fd) :
-		connection<IMPL>(fd), m_stream_func(NULL) { }
-
-	~stream_connection() { }
+	basic_stream_connection() : m_stream_func(NULL) { }
+	~basic_stream_connection() { }
 
 public:
-	typedef void (IMPL::*stream_func_t)(stream s);
+	typedef mp::function<void (stream)> stream_func_t;
 
-	void reset_stream_func(stream_func_t* func = NULL)
+	void reset_stream_func(stream_func_t func = stream_func_t())
 	{
 		m_stream_func = func;
 	}
 
-public:
-	// from connection::read_event
-	void read_data();
-
-private:
+protected:
 	stream_func_t m_stream_func;
 };
 
 
 template <typename IMPL>
-inline void stream_connection<IMPL>::read_data()
-{
-	if(m_stream_func) {
-		(static_cast<IMPL*>(this)->*m_stream_func)(
-				stream(connection<IMPL>::fd(), connection<IMPL>::m_pac) );
-	} else {
-		connection<IMPL>::read_data();
+class stream_connection : public connection<IMPL>, protected basic_stream_connection {
+public:
+	stream_connection(int fd) : connection<IMPL>(fd) { }
+	~stream_connection() { }
+
+public:
+	// from connection::read_event
+	void read_data()
+	{
+		if(m_stream_func) {
+			m_stream_func( stream(connection<IMPL>::fd(), connection<IMPL>::m_pac) );
+		} else {
+			connection<IMPL>::read_data();
+		}
 	}
-}
+};
+
+
+class stream_connection_access {
+public:
+	template <typename IMPL>
+	stream_connection_access(IMPL* self) :
+		m_stream(self->fd(), self->buffer()), m_self(self) { }
+
+	~stream_connection_access() { }
+
+public:
+	typedef basic_stream_connection::stream_func_t stream_func_t;
+
+	void reset_stream_func(stream_func_t func = stream_func_t())
+	{
+		m_self->reset_stream_func(func);
+	}
+
+	stream& streaming() { return m_stream; }
+	const stream& streaming() const { return m_stream; }
+
+private:
+	stream m_stream;
+	basic_stream_connection* m_self;
+};
 
 
 }  // namespace ccf

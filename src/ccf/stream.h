@@ -18,10 +18,13 @@
 #ifndef CCF_STREAM_H__
 #define CCF_STREAM_H__
 
+#include <mp/exception.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
+#include <errno.h>
 
 namespace ccf {
 
@@ -45,6 +48,43 @@ public:
 		} else {
 			// FIXME readv() if count < X
 			return ::read(m_fd, buf, count);
+		}
+	}
+
+	void read_all(void* buf, size_t count)
+	{
+		{
+			size_t sz = m_pac.nonparsed_size();
+			if(sz > 0) {
+				if(count <= sz) {
+					memcpy(buf, m_pac.nonparsed_buffer(), count);
+					m_pac.buffer_consumed(count);
+					return;
+				}
+				memcpy(buf, m_pac.nonparsed_buffer(), sz);
+				m_pac.buffer_consumed(sz);
+				buf = (char*)buf + sz;
+				count -= sz;
+			}
+		}
+
+		if(::fcntl(m_fd, F_SETFL, 0) < 0) {
+			throw mp::system_error(errno, "failed to reset nonblock flag");
+		}
+
+		do {
+			ssize_t sz = ::read(m_fd, buf, count);
+			if(sz <= 0) {
+				if(sz == 0) { throw mp::system_error(errno, "read_all failed"); }
+				if(errno == EINTR) { continue; }
+				throw mp::system_error(errno, "read_all failed");
+			}
+			buf = (char*)buf + sz;
+			count -= sz;
+		} while(count > 0);
+
+		if(::fcntl(m_fd, F_SETFL, O_NONBLOCK) < 0) {
+			throw mp::system_error(errno, "failed to set nonblock flag");
 		}
 	}
 

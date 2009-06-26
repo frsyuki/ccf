@@ -20,7 +20,6 @@
 
 #include <msgpack.hpp>
 #include <mp/memory.h>
-#include <mp/functional.h>
 #include <mp/pthread.h>
 
 namespace ccf {
@@ -37,8 +36,6 @@ typedef mp::shared_ptr<msgpack::zone> shared_zone;
 class session;
 typedef mp::shared_ptr<session> shared_session;
 typedef mp::weak_ptr<session> weak_session;
-
-typedef mp::function<void (msgobj, msgobj, auto_zone)> callback_t;
 
 using mp::pthread_scoped_lock;
 using mp::pthread_scoped_rdlock;

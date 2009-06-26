@@ -19,6 +19,7 @@
 #define CCF_SESSION_RETRY_H__
 
 #include "ccf/types.h"
+#include "ccf/session.h"
 
 namespace ccf {
 
