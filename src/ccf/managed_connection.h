@@ -69,10 +69,10 @@ public:
 	void session_rebind(shared_session s)
 	{
 		if(m_session) {
-			m_session->remove_connection(m_session, rpc_connection<IMPL>::fd());
+			m_session->remove_connection(rpc_connection<IMPL>::fd());
 			m_session.reset();
 		}
-		m_session->add_connection(rpc_connection<IMPL>::fd());
+		s->add_connection(rpc_connection<IMPL>::fd());
 		m_session = s;
 	}
 
@@ -127,14 +127,14 @@ public:
 	}
 
 public:
-	// FIXME don't called
+	// from cluster::connection::process_init
 	void session_rebind(shared_session s)
 	{
 		if(m_session) {
-			m_session->remove_connection(m_session, connection<IMPL>::fd());
+			m_session->remove_connection(connection<IMPL>::fd());
 			m_session.reset();
 		}
-		m_session->add_connection(connection<IMPL>::fd());
+		s->add_connection(connection<IMPL>::fd());
 		m_session = s;
 	}
 
