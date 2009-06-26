@@ -26,12 +26,11 @@
 namespace ccf {
 
 
-template <typename Parameter, typename Identifier = address>
+template <typename Parameter, typename Identifier = void>
 struct session_request {
 	typedef ccf::retry<Parameter> retry;
 
-	session_request(const Identifier& from_, msgobj param_,
-			session_responder response) :
+	session_request(msgobj param_, session_responder response, const Identifier& from_) :
 		from(from_), m_response(response)
 	{
 		param_.convert(&param);
@@ -39,6 +38,51 @@ struct session_request {
 
 	Parameter param;
 	const Identifier from;
+
+	template <typename Result>
+	void result(Result res)
+		{ m_response.result<Result>(res); }
+
+	template <typename Result>
+	void result(Result res, auto_zone& z)
+		{ m_response.result<Result>(res, z); }
+
+	template <typename Result>
+	void result(Result res, shared_zone& life)
+		{ m_response.result<Result>(res, life); }
+
+	void result_null()
+		{ m_response.null(); }
+
+	template <typename Error>
+	void result_error(Error err)
+		{ m_response.error<Error>(err); }
+
+	template <typename Error>
+	void result_error(Error err, auto_zone& z)
+		{ m_response.error<Error>(err, z); }
+
+	template <typename Error>
+	void result_error(Error err, shared_zone& life)
+		{ m_response.error<Error>(err, life); }
+
+private:
+	session_responder m_response;
+	session_request();
+};
+
+
+template <typename Parameter>
+struct session_request<Parameter, void> {
+	typedef ccf::retry<Parameter> retry;
+
+	session_request(msgobj param_, session_responder response) :
+		m_response(response)
+	{
+		param_.convert(&param);
+	}
+
+	Parameter param;
 
 	template <typename Result>
 	void result(Result res)
