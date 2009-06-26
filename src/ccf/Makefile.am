@@ -31,6 +31,8 @@ noinst_HEADERS = \
 		session_responder.h \
 		session_responder_impl.h \
 		state_connection.h \
+		stream.h \
+		stream_connection.h \
 		types.h \
 		util.h
 

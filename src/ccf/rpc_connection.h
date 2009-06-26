@@ -19,13 +19,12 @@
 #define CCF_RPC_CONNECTION_H__
 
 #include "ccf/connection.h"
-
+#include "ccf/stream_connection.h"
 #include "cclog/cclog.h"
 #include "ccf/types.h"
 #include "ccf/protocol.h"
 #include "ccf/responder.h"
 #include "ccf/service.h"
-// FIXME #include "rpc/stream.h"
 #include <msgpack.hpp>
 #include <stdexcept>
 #include <memory>
@@ -38,10 +37,10 @@ namespace ccf {
 
 
 template <typename IMPL>
-class rpc_connection : public connection<IMPL> {
+class rpc_connection : public stream_connection<IMPL> {
 public:
 	rpc_connection(int fd) :
-		connection<IMPL>(fd), m_stream_mode(false) { }
+		stream_connection<IMPL>(fd) { }
 
 	~rpc_connection() { }
 
@@ -62,14 +61,11 @@ public:
 		throw msgpack::type_error();
 	}
 
-	void process_stream(msgobj method, msgobj param, msgid_t msgid, auto_zone z);  // FIXME
-
 	// from connection<IMPL>
 	void process_message(msgobj msg, auto_zone z);
 
 protected:
 	msgpack::unpacker m_pac;
-	bool m_stream_mode;
 
 private:
 	rpc_connection();

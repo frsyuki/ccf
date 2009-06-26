@@ -42,8 +42,11 @@ namespace ccf {
 template <typename IMPL>
 class connection : public core::handler {
 public:
-	connection(int fd);
-	~connection();
+	connection(int fd) :
+		core::handler(fd),
+		m_pac(CCF_CONNECTION_INITIAL_BUFFER_SIZE) { }
+
+	~connection() { }
 
 public:
 	// from wavy: readable notification
@@ -60,15 +63,6 @@ private:
 	connection();
 	connection(const connection&);
 };
-
-
-template <typename IMPL>
-connection<IMPL>::connection(int fd) :
-	core::handler(fd),
-	m_pac(CCF_CONNECTION_INITIAL_BUFFER_SIZE) { }
-
-template <typename IMPL>
-connection<IMPL>::~connection() { }
 
 
 template <typename IMPL>
