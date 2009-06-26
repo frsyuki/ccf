@@ -26,55 +26,87 @@
 namespace ccf {
 
 
+template <typename NodeInfo>
 class node : public session {
-public:
-	// FIXME multihome address
-	node(const address& addr, basic_session_manager* manager) :
-		session(manager), m_addr(addr) { }
+private:
+	typedef NodeInfo node_info_t;
 
 public:
-	const address& addr() const { return m_addr; }
+	node(const node_info_t& info, basic_session_manager* manager) :
+		session(manager), m_info(info) { }
+
+public:
+	const node_info_t& info() const { return m_info; }
 
 private:
-	address m_addr;
+	node_info_t m_info;
 
 private:
 	node();
 	node(const node&);
 };
 
-typedef mp::shared_ptr<node> shared_node;
-typedef mp::weak_ptr<node>   weak_node;
 
+template <typename NodeInfo>
+class cluster : public session_manager<NodeInfo, cluster<NodeInfo> > {
+private:
+	typedef session_manager<NodeInfo, cluster<NodeInfo> > base_t;
+	typedef typename base_t::identifier_t identifier_t;
+	typedef NodeInfo node_info_t;
 
-// FIXME multihome address
-class cluster : public session_manager<address, cluster> {
 public:
+	typedef node<node_info_t> node_t;
+	typedef mp::shared_ptr<node_t> shared_node;
+	typedef mp::weak_ptr<node_t>   weak_node;
+
 	class connection;
+	class listener;
 
 public:
-	cluster() { }
+	cluster(const node_info_t& self) : m_self(self) { }
 	~cluster() { }
+
+	const node_info_t& self() const { return m_self; }
+	node_info_t& self() { return m_self; }
 
 public:
 	// get server interface.
 	// it manages non-cluster clients.
 	server& subsystem() { return m_subsystem; }
 
-public:
-	// session_manager interface
-	void session_created(const identifier_t& addr, shared_session s)
+	virtual void cluster_dispatch(shared_node from,
+			method_t method, msgobj param,
+			session_responder response, auto_zone& z) = 0;
+
+	virtual void subsys_dispatch(shared_peer from,
+			method_t method, msgobj param,
+			session_responder response, auto_zone& z) = 0;
+
+protected:
+	friend class session_manager<NodeInfo, cluster<NodeInfo> >;
+
+	// override session_manager::new_session
+	shared_session new_session(const identifier_t& id)
 	{
-		LOG_WARN("session created ",addr);
-		// FIXME multihome connect
-		if(!s->is_connected() && addr.connectable()) {
-			LOG_WARN("connectiong to ",addr);
-			std::cout << "connect " << addr << std::endl;
-			async_connect(addr, addr, s);
-		}
+		return shared_session(new node_t(id, this));
 	}
 
-	// FIXME
+	// session_manager interface
+	void session_created(const identifier_t& id, shared_session s)
+	{
+		LOG_WARN("session created ",id);
+		if(s->is_connected()) { return; }
+		async_connect_all(id, s);
+	}
+
+	// override session_manager::session_unbound
+	void session_unbound(shared_session s)
+	{
+		// reconnect
+		const node_info_t& id = static_cast<node_t*>(s.get())->info();
+		async_connect_all(id, s);
+	}
+
 	// override session_manager::connect_success
 	void connect_success(int fd, const identifier_t& id,
 			const address& addr_to, shared_session& s)
@@ -87,20 +119,6 @@ public:
 			const address& addr_to, shared_session& s)
 	{ }
 
-	// override session_manager::session_unbound
-	void session_unbound(shared_session s)
-	{
-		// reconnect
-		address addr = static_cast<node*>(s.get())->addr();  // mp::static_pointer_cast<node>(s) ?
-		async_connect(addr, addr, s);
-	}
-
-	// override session_manager::create_session
-	shared_session create_session(const identifier_t& id)
-	{
-		return shared_session(new node(id, this));
-	}
-
 	// override session_manager::dispatch
 	void dispatch(shared_session from,
 			method_t method, msgobj param,
@@ -109,36 +127,38 @@ public:
 		throw std::logic_error("cluster::dispatch called");
 	}
 
-	virtual void cluster_dispatch_request(
-			shared_node from,
-			method_t method, msgobj param,
-			responder& response, auto_zone& z) = 0;
-
-	virtual void subsys_dispatch_request(
-			shared_peer from,
-			method_t method, msgobj param,
-			responder& response, auto_zone& z) = 0;
+private:
+	inline void async_connect_all(const identifier_t& id, shared_session& s)
+	{
+		/* FIXME node_info_t
+		for(identifier_t::const_iterator it(id.begin()),
+				it_end(id.end()); it != it_end; ++it) {
+			LOG_WARN("connectiong to ",*it);
+			async_connect(id, *it, s);
+		}
+		*/
+	}
 
 public:
-	void accepted(int fd, const address& addr)
+	void accepted(int fd, const address& addr_from)
 	{
-		LOG_WARN("session created ",addr);
+		LOG_WARN("session created ",addr_from);
 		// FIXME
 		//   1. core::add_handler<connection>(fd, this);
 		//   2. connection::process_init(): get_manager()->bind_session(id, addr, this);
 		//bind_session(addr, addr, core::add_handler<connection>(fd, this));
 		//bind_session(addr, connect_success_callback(fd, this, addr));
 		//bind_session(addr, addr, core::add_handler<connection>(fd, this));
-		core::add_handler<connection>(fd, this);
+		core::add_handler<connection>(fd, this, addr_from);
 	}
 
 private:
 	class subsys : public server {
 	public:
 		subsys() { }
-		~subsys();
+		~subsys() { }
 
-	private:
+	public:
 		// override session_manager::dispatch
 		void dispatch(shared_session from,
 				method_t method, msgobj param,
@@ -152,16 +172,24 @@ private:
 	};
 
 	subsys m_subsystem;
+
+private:
+	NodeInfo m_self;
 };
 
 
-class cluster::connection : public managed_state_connection<connection> {
+template <typename NodeInfo>
+class cluster<NodeInfo>::connection : public managed_state_connection<connection> {
+private:
+	typedef cluster<NodeInfo> cluster_t;
+	typedef managed_state_connection<connection> base_t;
+
 public:
 	// unknown connection
-	connection(int fd, cluster* manager);
+	connection(int fd, cluster_t* manager, const address& peer_addr);
 
 	// cluster connection
-	connection(int fd, cluster* manager, shared_session session);
+	connection(int fd, cluster_t* manager, shared_session session);
 
 	~connection() { }
 
@@ -170,22 +198,37 @@ public:
 
 private:
 	void cluster_state(msgobj msg, auto_zone z);
+
 	void subsys_state(msgobj msg, auto_zone z);
-	inline cluster* get_manager();
+
+	inline cluster_t* get_manager()
+	{
+		// managed_connection::m_manager
+		return static_cast<cluster_t*>(base_t::m_manager);
+	}
+
+	void send_init();
 
 private:
+	address m_peer_addr;
+
 	connection();
 	connection(const connection&);
 };
 
 
-class cluster_listener : public listener<cluster_listener> {
+template <typename NodeInfo>
+class cluster<NodeInfo>::listener : public ccf::listener<typename cluster<NodeInfo>::listener> {
+private:
+	typedef cluster<NodeInfo> cluster_t;
+	typedef ccf::listener<typename cluster<NodeInfo>::listener> base_t;
+
 public:
-	cluster_listener(int fd, cluster* manager) :
-		listener<cluster_listener>(fd),
+	listener(int fd, cluster_t* manager) :
+		base_t(fd),
 		m_manager(manager) { }
 
-	~cluster_listener() { }
+	~listener() { }
 
 public:
 	void closed()
@@ -201,12 +244,134 @@ public:
 	}
 
 private:
-	cluster* m_manager;
+	cluster_t* m_manager;
 
 private:
-	cluster_listener();
-	cluster_listener(const cluster_listener&);
+	listener();
+	listener(const listener&);
 };
+
+
+template <typename NodeInfo>
+cluster<NodeInfo>::connection::connection(int fd, cluster_t* manager,
+		const address& peer_addr) :
+	base_t(fd, manager), m_peer_addr(peer_addr) { }
+
+template <typename NodeInfo>
+cluster<NodeInfo>::connection::connection(int fd, cluster_t* manager,
+		shared_session session) :
+	base_t(fd, manager, session)
+{
+	set_process(&connection::cluster_state);
+}
+
+
+template <typename NodeInfo>
+void cluster<NodeInfo>::connection::send_init()
+{
+	message_init<const node_info_t&> init(get_manager()->self());
+	msgpack::sbuffer buf;
+	msgpack::pack(buf, init);
+
+	core::write(base_t::fd(), buf.data(), buf.size(), &::free, buf.data());
+	buf.release();
+	LOG_TRACE("sent init message");
+}
+
+
+template <typename NodeInfo>
+void cluster<NodeInfo>::connection::process_init(msgobj msg, auto_zone z)
+{
+	rpc_message rpc; msg.convert(&rpc);
+
+	if(!rpc.is_init()) {
+		// subsys
+		LOG_DEBUG("enter subsys state");
+
+		base_t::session_rebind( get_manager()->subsystem().get_session(m_peer_addr) );
+
+		set_process(&connection::subsys_state);
+
+		// re-process this message
+		base_t::process_message(msg, z);
+		return;
+	}
+
+	// cluster node
+	message_init<node_info_t> init; msg.convert(&init);
+
+	LOG_TRACE("receive init message: "/*,init.info()*/);
+
+	send_init();
+
+	// FIXME move this into cluster::bind_connection
+	// FIXME try/catch?
+	std::pair<bool, shared_session> bs = get_manager()->bind_session(init.info());
+	base_t::session_rebind(bs.second);
+	if(bs.first) {
+		get_manager()->session_created(init.info(), bs.second);
+	}
+
+	set_process(&connection::cluster_state);
+}
+
+
+template <typename NodeInfo>
+void cluster<NodeInfo>::connection::subsys_state(msgobj msg, auto_zone z)
+{
+	LOG_TRACE("receive rpc message: ",msg);
+	rpc_message rpc; msg.convert(&rpc);
+
+	switch(rpc.type()) {
+	case message_code::REQUEST: {
+			message_request<msgobj> req; msg.convert(&req);
+			get_manager()->subsys_dispatch(
+					mp::static_pointer_cast<peer>(base_t::m_session),
+					req.method(), req.param(),
+					session_responder(weak_session(base_t::m_session), req.msgid()), z);
+		}
+		break;
+
+	case message_code::RESPONSE: {
+			message_response<msgobj, msgobj> res; msg.convert(&res);
+			base_t::process_response(  // managed_connection::process_response
+					res.result(), res.error(), res.msgid(), z);
+		}
+		break;
+
+	default:
+		throw msgpack::type_error();
+	}
+}
+
+
+template <typename NodeInfo>
+void cluster<NodeInfo>::connection::cluster_state(msgobj msg, auto_zone z)
+{
+	LOG_TRACE("receive rpc message: ",msg);
+	rpc_message rpc; msg.convert(&rpc);
+
+	switch(rpc.type()) {
+	case message_code::REQUEST: {
+			message_request<msgobj> req; msg.convert(&req);
+			get_manager()->cluster_dispatch(
+					mp::static_pointer_cast<node_t>(base_t::m_session),
+					req.method(), req.param(),
+					session_responder(weak_session(base_t::m_session), req.msgid()), z);
+		}
+		break;
+
+	case message_code::RESPONSE: {
+			message_response<msgobj, msgobj> res; msg.convert(&res);
+			base_t::process_response(  // managed_connection::process_response
+					res.result(), res.error(), res.msgid(), z);
+		}
+		break;
+
+	default:
+		throw msgpack::type_error();
+	}
+}
 
 
 }  // namespace ccf

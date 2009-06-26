@@ -79,11 +79,7 @@ protected:
 	{
 		LOG_WARN("session created ",id);
 		if(s->is_connected()) { return; }
-		for(identifier_t::const_iterator it(id.begin()),
-				it_end(id.end()); it != it_end; ++it) {
-			LOG_WARN("connectiong to ",*it);
-			async_connect(id, *it, s);
-		}
+		async_connect_all(id, s);
 	}
 
 	// override session_manager::session_unbound
@@ -91,10 +87,7 @@ protected:
 	{
 		// reconnect
 		const maddress& id = static_cast<mhclient_session*>(s.get())->maddr();
-		for(identifier_t::const_iterator it(id.begin()),
-				it_end(id.end()); it != it_end; ++it) {
-			async_connect(id, *it, s);
-		}
+		async_connect_all(id, s);
 	}
 
 	// override session_manager::connect_success
@@ -108,6 +101,16 @@ protected:
 	void connect_failed(int fd, const identifier_t& id,
 			const address& addr_to, shared_session& s)
 	{ }
+
+private:
+	inline void async_connect_all(const identifier_t& id, shared_session& s)
+	{
+		for(identifier_t::const_iterator it(id.begin()),
+				it_end(id.end()); it != it_end; ++it) {
+			LOG_WARN("connectiong to ",*it);
+			async_connect(id, *it, s);
+		}
+	}
 
 public:
 	//void accepted(int fd, const address& addr_from)
