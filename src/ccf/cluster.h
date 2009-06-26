@@ -47,10 +47,10 @@ private:
 };
 
 
-template <typename NodeInfo>
-class cluster : public session_manager<NodeInfo, cluster<NodeInfo> > {
+template <typename NodeInfo, typename Framework>
+class cluster : public session_manager<NodeInfo, Framework> {
 private:
-	typedef session_manager<NodeInfo, cluster<NodeInfo> > base_t;
+	typedef session_manager<NodeInfo, Framework> base_t;
 	typedef typename base_t::identifier_t identifier_t;
 	typedef NodeInfo node_info_t;
 
@@ -74,16 +74,16 @@ public:
 	// it manages non-cluster clients.
 	server& subsystem() { return m_subsystem; }
 
-	virtual void cluster_dispatch(shared_node from,
-			method_t method, msgobj param,
-			session_responder response, auto_zone& z) = 0;
+	//virtual void cluster_dispatch(shared_node from,
+	//		method_t method, msgobj param,
+	//		session_responder response, auto_zone& z) = 0;
 
-	virtual void subsys_dispatch(shared_peer from,
-			method_t method, msgobj param,
-			session_responder response, auto_zone& z) = 0;
+	//virtual void subsys_dispatch(shared_peer from,
+	//		method_t method, msgobj param,
+	//		session_responder response, auto_zone& z) = 0;
 
 protected:
-	friend class session_manager<NodeInfo, cluster<NodeInfo> >;
+	friend class session_manager<NodeInfo, Framework>;
 
 	// override session_manager::new_session
 	shared_session new_session(const identifier_t& id)
@@ -96,7 +96,7 @@ protected:
 	{
 		LOG_WARN("session created ",id);
 		if(s->is_connected()) { return; }
-		async_connect_all(id, s);
+		static_cast<Framework*>(this)->async_connect_all(id, s);
 	}
 
 	// override session_manager::session_unbound
@@ -104,14 +104,14 @@ protected:
 	{
 		// reconnect
 		const node_info_t& id = static_cast<node_t*>(s.get())->info();
-		async_connect_all(id, s);
+		static_cast<Framework*>(this)->async_connect_all(id, s);
 	}
 
 	// override session_manager::connect_success
 	void connect_success(int fd, const identifier_t& id,
 			const address& addr_to, shared_session& s)
 	{
-		core::add_handler<connection>(fd, this, s);
+		core::add_handler<connection>(fd, static_cast<Framework*>(this), s);
 	}
 
 	// override session_manager::connect_failed
@@ -152,8 +152,20 @@ public:
 		//bind_session(addr, addr, core::add_handler<connection>(fd, this));
 		//bind_session(addr, connect_success_callback(fd, this, addr));
 		//bind_session(addr, addr, core::add_handler<connection>(fd, this));
-		core::add_handler<connection>(fd, this, addr_from);
+		core::add_handler<connection>(fd, static_cast<Framework*>(this), addr_from);
 	}
+
+private:
+	void bind_connection(connection& c, const node_info_t& id)
+	{
+		std::pair<bool, shared_session> bs = bind_session(id);
+		c.session_rebind(bs.second);
+		if(bs.first) {
+			static_cast<Framework*>(this)->session_created(id, bs.second);
+		}
+	}
+
+	friend class connection;
 
 private:
 	class subsys : public server {
@@ -183,33 +195,30 @@ private:
 };
 
 
-template <typename NodeInfo>
-struct cluster<NodeInfo>::send_init_mixin {
-	typedef cluster<NodeInfo> cluster_t;
-
+template <typename NodeInfo, typename Framework>
+struct cluster<NodeInfo, Framework>::send_init_mixin {
 	send_init_mixin() { }
 
-	send_init_mixin(int fd, cluster_t* manager)
+	send_init_mixin(int fd, Framework* manager)
 	{
 		send_init(fd, manager);
 	}
 
-	void send_init(int fd, cluster_t* manager);
+	void send_init(int fd, Framework* manager);
 };
 
 
-template <typename NodeInfo>
-class cluster<NodeInfo>::connection : protected send_init_mixin, public managed_state_connection<connection> {
+template <typename NodeInfo, typename Framework>
+class cluster<NodeInfo, Framework>::connection : protected send_init_mixin, public managed_state_connection<connection> {
 private:
-	typedef cluster<NodeInfo> cluster_t;
 	typedef managed_state_connection<connection> base_t;
 
 public:
 	// unknown connection
-	connection(int fd, cluster_t* manager, const address& peer_addr);
+	connection(int fd, Framework* manager, const address& peer_addr);
 
 	// cluster connection
-	connection(int fd, cluster_t* manager, shared_session session);
+	connection(int fd, Framework* manager, shared_session session);
 
 	~connection() { }
 
@@ -221,10 +230,10 @@ private:
 
 	void subsys_state(msgobj msg, auto_zone z);
 
-	inline cluster_t* get_manager()
+	inline Framework* get_manager()
 	{
 		// managed_connection::m_manager
-		return static_cast<cluster_t*>(base_t::m_manager);
+		return static_cast<Framework*>(base_t::m_manager);
 	}
 
 	void send_init()
@@ -240,14 +249,13 @@ private:
 };
 
 
-template <typename NodeInfo>
-class cluster<NodeInfo>::listener : public ccf::listener<typename cluster<NodeInfo>::listener> {
+template <typename NodeInfo, typename Framework>
+class cluster<NodeInfo, Framework>::listener : public ccf::listener<typename cluster<NodeInfo, Framework>::listener> {
 private:
-	typedef cluster<NodeInfo> cluster_t;
-	typedef ccf::listener<typename cluster<NodeInfo>::listener> base_t;
+	typedef ccf::listener<typename cluster<NodeInfo, Framework>::listener> base_t;
 
 public:
-	listener(int fd, cluster_t* manager) :
+	listener(int fd, Framework* manager) :
 		base_t(fd),
 		m_manager(manager) { }
 
@@ -263,11 +271,11 @@ public:
 	{
 		// FIXME check address
 		address a(*(struct sockaddr_in*)addr);
-		m_manager->accepted(fd, a);
+		static_cast<Framework*>(m_manager)->accepted(fd, a);
 	}
 
 private:
-	cluster_t* m_manager;
+	Framework* m_manager;
 
 private:
 	listener();
@@ -275,23 +283,23 @@ private:
 };
 
 
-template <typename NodeInfo>
-cluster<NodeInfo>::connection::connection(int fd, cluster_t* manager,
+template <typename NodeInfo, typename Framework>
+cluster<NodeInfo, Framework>::connection::connection(int fd, Framework* manager,
 		const address& peer_addr) :
 	send_init_mixin(), // don't send init
 	base_t(fd, manager), m_peer_addr(peer_addr)
 { }
 
-template <typename NodeInfo>
-cluster<NodeInfo>::connection::connection(int fd, cluster_t* manager,
+template <typename NodeInfo, typename Framework>
+cluster<NodeInfo, Framework>::connection::connection(int fd, Framework* manager,
 		shared_session session) :
 	send_init_mixin(fd, manager),  // send init
 	base_t(fd, manager, session)
 { }
 
 
-template <typename NodeInfo>
-void cluster<NodeInfo>::send_init_mixin::send_init(int fd, cluster_t* manager)
+template <typename NodeInfo, typename Framework>
+void cluster<NodeInfo, Framework>::send_init_mixin::send_init(int fd, Framework* manager)
 {
 	message_init<const node_info_t&> init(manager->self());
 	msgpack::sbuffer buf;
@@ -303,8 +311,8 @@ void cluster<NodeInfo>::send_init_mixin::send_init(int fd, cluster_t* manager)
 }
 
 
-template <typename NodeInfo>
-void cluster<NodeInfo>::connection::process_init(msgobj msg, auto_zone z)
+template <typename NodeInfo, typename Framework>
+void cluster<NodeInfo, Framework>::connection::process_init(msgobj msg, auto_zone z)
 {
 	rpc_message rpc; msg.convert(&rpc);
 
@@ -329,22 +337,15 @@ void cluster<NodeInfo>::connection::process_init(msgobj msg, auto_zone z)
 
 	if(!base_t::m_session) {
 		send_init();
-
-		// FIXME move this into cluster::bind_connection
-		// FIXME try/catch?
-		std::pair<bool, shared_session> bs = get_manager()->bind_session(init.info());
-		base_t::session_rebind(bs.second);
-		if(bs.first) {
-			get_manager()->session_created(init.info(), bs.second);
-		}
+		get_manager()->bind_connection(*this, init.info());
 	}
 
 	set_process(&connection::cluster_state);
 }
 
 
-template <typename NodeInfo>
-void cluster<NodeInfo>::connection::subsys_state(msgobj msg, auto_zone z)
+template <typename NodeInfo, typename Framework>
+void cluster<NodeInfo, Framework>::connection::subsys_state(msgobj msg, auto_zone z)
 {
 	LOG_TRACE("receive rpc message: ",msg);
 	rpc_message rpc; msg.convert(&rpc);
@@ -372,8 +373,8 @@ void cluster<NodeInfo>::connection::subsys_state(msgobj msg, auto_zone z)
 }
 
 
-template <typename NodeInfo>
-void cluster<NodeInfo>::connection::cluster_state(msgobj msg, auto_zone z)
+template <typename NodeInfo, typename Framework>
+void cluster<NodeInfo, Framework>::connection::cluster_state(msgobj msg, auto_zone z)
 {
 	LOG_TRACE("receive rpc message: ",msg);
 	rpc_message rpc; msg.convert(&rpc);

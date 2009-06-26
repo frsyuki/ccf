@@ -47,7 +47,12 @@ typedef mp::shared_ptr<peer> shared_peer;
 typedef mp::weak_ptr<peer>   weak_peer;
 
 
-class server : public session_manager<address, server> {
+template <typename Framework>
+class server : public session_manager<address, Framework> {
+private:
+	typedef session_manager<address, Framework> base_t;
+	typedef typename base_t::identifier_t identifier_t;
+
 public:
 	class connection;
 	class listener;
@@ -63,7 +68,7 @@ public:
 	//		session_responder response, auto_zone& z);
 
 protected:
-	friend class session_manager<address, server>;
+	friend class session_manager<address, Framework>;
 
 	// override session_manager::new_session
 	shared_session new_session(const identifier_t& id)
@@ -92,7 +97,7 @@ protected:
 	void connect_success(int fd, const identifier_t& id,
 			const address& addr_to, shared_session& s)
 	{
-		core::add_handler<connection>(fd, this, s);
+		core::add_handler<connection>(fd, static_cast<Framework*>(this), s);
 	}
 
 	// override session_manager::connect_failed
@@ -105,20 +110,21 @@ public:
 	void accepted(int fd, const address& addr_from)
 	{
 		LOG_INFO("accepted ",addr_from);
-		std::pair<bool, shared_session> bs = bind_session(addr_from);
+		std::pair<bool, shared_session> bs = static_cast<Framework*>(this)->bind_session(addr_from);
 
-		core::add_handler<connection>(fd, this, bs.second);
+		core::add_handler<connection>(fd, static_cast<Framework*>(this), bs.second);
 
 		if(bs.first) {
-			session_created(addr_from, bs.second);
+			static_cast<Framework*>(this)->session_created(addr_from, bs.second);
 		}
 	}
 };
 
 
-class server::connection : public managed_connection<connection> {
+template <typename Framework>
+class server<Framework>::connection : public managed_connection<connection> {
 public:
-	connection(int fd, server* manager, shared_session session) :
+	connection(int fd, Framework* manager, shared_session session) :
 		managed_connection<connection>(fd, manager, session) { }
 
 	~connection() { }
@@ -129,10 +135,11 @@ private:
 };
 
 
-class server::listener : public ccf::listener<server::listener> {
+template <typename Framework>
+class server<Framework>::listener : public ccf::listener<typename server<Framework>::listener> {
 public:
-	listener(int fd, server* manager) :
-		ccf::listener<server::listener>(fd),
+	listener(int fd, Framework* manager) :
+		ccf::listener<typename server<Framework>::listener>(fd),
 		m_manager(manager) { }
 
 	~listener() { }
@@ -151,7 +158,7 @@ public:
 	}
 
 private:
-	server* m_manager;
+	Framework* m_manager;
 
 private:
 	listener();

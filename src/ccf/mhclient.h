@@ -47,10 +47,14 @@ typedef mp::shared_ptr<mhclient_session> shared_client_session;
 typedef mp::weak_ptr<mhclient_session>   weak_client_session;
 
 
-class mhclient : public session_manager<maddress, mhclient> {
+template <typename Framework>
+class mhclient : public session_manager<maddress, Framework> {
+private:
+	typedef session_manager<maddress, Framework> base_t;
+	typedef typename base_t::identifier_t identifier_t;
+
 public:
 	class connection;
-	class listener;
 
 public:
 	mhclient() { }
@@ -66,7 +70,7 @@ public:
 	}
 
 protected:
-	friend class session_manager<maddress, mhclient>;
+	friend class session_manager<maddress, Framework>;
 
 	// override session_manager::new_session
 	shared_session new_session(const identifier_t& id)
@@ -79,7 +83,7 @@ protected:
 	{
 		LOG_WARN("session created ",id);
 		if(s->is_connected()) { return; }
-		async_connect_all(id, s);
+		static_cast<Framework*>(this)->async_connect_all(id, s);
 	}
 
 	// override session_manager::session_unbound
@@ -87,14 +91,14 @@ protected:
 	{
 		// reconnect
 		const maddress& id = static_cast<mhclient_session*>(s.get())->maddr();
-		async_connect_all(id, s);
+		static_cast<Framework*>(this)->async_connect_all(id, s);
 	}
 
 	// override session_manager::connect_success
 	void connect_success(int fd, const identifier_t& id,
 			const address& addr_to, shared_session& s)
 	{
-		core::add_handler<connection>(fd, this, s);
+		core::add_handler<connection>(fd, static_cast<Framework*>(this), s);
 	}
 
 	// override session_manager::connect_failed
@@ -105,10 +109,10 @@ protected:
 private:
 	inline void async_connect_all(const identifier_t& id, shared_session& s)
 	{
-		for(identifier_t::const_iterator it(id.begin()),
+		for(typename identifier_t::const_iterator it(id.begin()),
 				it_end(id.end()); it != it_end; ++it) {
 			LOG_WARN("connectiong to ",*it);
-			async_connect(id, *it, s);
+			static_cast<Framework*>(this)->async_connect(id, *it, s);
 		}
 	}
 
@@ -117,7 +121,7 @@ public:
 	//{
 	//	std::pair<bool, shared_session> bs = bind_session(addr_from);
 	//
-	//	core::add_handler<connection>(fd, this, bs.second, addr_from);
+	//	core::add_handler<connection>(fd, static_cast<Framework*>(this), bs.second, addr_from);
 	//
 	//	if(bs.first) {
 	//		session_created(addr_from, bs.second);
@@ -126,9 +130,10 @@ public:
 };
 
 
-class mhclient::connection : public managed_connection<connection> {
+template <typename Framework>
+class mhclient<Framework>::connection : public managed_connection<connection> {
 public:
-	connection(int fd, mhclient* manager, shared_session session) :
+	connection(int fd, Framework* manager, shared_session session) :
 		managed_connection<connection>(fd, manager, session) { }
 
 	~connection() { }

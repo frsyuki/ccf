@@ -65,7 +65,7 @@ public:
 	}
 
 public:
-	// from framework::bind_session? FIXME
+	// from cluster::bind_connection
 	void session_rebind(shared_session s)
 	{
 		if(m_session) {
@@ -127,7 +127,7 @@ public:
 	}
 
 public:
-	// from cluster::connection::process_init
+	// from cluster::bind_connection
 	void session_rebind(shared_session s)
 	{
 		if(m_session) {
@@ -137,7 +137,6 @@ public:
 		s->add_connection(connection<IMPL>::fd());
 		m_session = s;
 	}
-
 
 protected:
 	// from cluster::connection::get_manager
