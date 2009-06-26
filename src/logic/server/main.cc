@@ -7,30 +7,36 @@
 
 namespace server {
 
-class framework : public ccf::cluster<ccf::address> {
+class framework : public ccf::cluster<ccf::address, framework> {
+private:
+	typedef ccf::cluster<ccf::address, framework> base_t;
+
 public:
-	framework(ccf::address self) : ccf::cluster<ccf::address>(self) { }
+	framework(ccf::address self) : base_t(self) { }
 	~framework() { }
+//public:
+//	framework() { }
+//	~framework() { }
 
-	void dispatch(ccf::shared_session from,
-			ccf::method_t method, ccf::msgobj param,
-			ccf::session_responder response, ccf::auto_zone& z)
+	void dispatch(ccf::method_t method, ccf::msgobj param,
+			ccf::session_responder response,
+			const ccf::address& from, ccf::auto_zone& z)
 	{
-		::server::dispatch(from, method, param, response, z);
+		::server::dispatch(method, param, response/*, from*/, z);
 	}
 
-	void cluster_dispatch(shared_node from,
-			ccf::method_t method, ccf::msgobj param,
-			ccf::session_responder response, ccf::auto_zone& z)
+	void cluster_dispatch(ccf::method_t method, ccf::msgobj param,
+			ccf::session_responder response,
+			const ccf::address& from, ccf::auto_zone& z)
 	{
-		dispatch(from, method, param, response, z);
+		::server::dispatch(method, param, response/*, from*/, z);
 	}
 
-	void subsys_dispatch(ccf::shared_peer from,
-			ccf::method_t method, ccf::msgobj param,
-			ccf::session_responder response, ccf::auto_zone& z)
+	void subsys_dispatch(ccf::method_t method, ccf::msgobj param,
+			ccf::session_responder response,
+			const ccf::address& from, ccf::auto_zone& z)
 	{
-		dispatch(from, method, param, response, z);
+		::server::dispatch(method, param, response/*, from*/, z);
 	}
 };
 

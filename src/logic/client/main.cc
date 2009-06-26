@@ -1,28 +1,14 @@
 #include <ccf/service.h>
-#include <ccf/cluster.h>
+#include <ccf/mhclient.h>
 #include <cclog/cclog_tty.h>
 #include "server/proto.h"
 
 namespace client {
 
-class framework : public ccf::cluster<ccf::address> {
+class framework : public ccf::mhclient<framework> {
 public:
-	framework() : ccf::cluster<ccf::address>(ccf::address()) { }
+	framework() { }
 	~framework() { }
-
-	void cluster_dispatch(shared_node from,
-			ccf::method_t method, ccf::msgobj param,
-			ccf::session_responder response, ccf::auto_zone& z)
-	{
-		throw msgpack::type_error();
-	}
-
-	void subsys_dispatch(ccf::shared_peer from,
-			ccf::method_t method, ccf::msgobj param,
-			ccf::session_responder response, ccf::auto_zone& z)
-	{
-		throw msgpack::type_error();
-	}
 };
 
 std::auto_ptr<framework> net;
@@ -41,7 +27,7 @@ void cb_Set(ccf::msgobj res, ccf::msgobj err, ccf::auto_zone z, int* context)
 	if(--req == 0) { ccf::service::end(); }
 }
 
-void init(ccf::address conf_addr)
+void init(ccf::maddress conf_addr)
 {
 	net.reset(new framework());
 
@@ -75,7 +61,10 @@ int main(int argc, char* argv[])
 	addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	addr.sin_port = htons(3000);
 
-	client::init( ccf::address(addr) );
+	ccf::maddress maddr;
+	maddr.push_back( ccf::address(addr) );
+	client::init(maddr);
+	//client::init( ccf::address(addr) );
 
 	//ccf::service::start(4);  // 4 threads
 	//ccf::service::join();
