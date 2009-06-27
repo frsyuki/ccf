@@ -1,5 +1,6 @@
 
 NEED_PREPROCESS = \
+		exclusive.h \
 		object_callback.h \
 		wavy/core.h \
 		wavy/singleton.h \
@@ -13,6 +14,7 @@ EXTRA_DIST = $(NEED_PREPROCESS)
 noinst_HEADERS = \
 	endian.h \
 	exception.h \
+	exclusive.h \
 	functional.h \
 	memory.h \
 	object_callback.h \
@@ -28,7 +30,9 @@ noinst_HEADERS = \
 	utility.h \
 	wavy/core.h \
 	wavy/singleton.h \
-	wavy.h
+	wavy.h \
+	sparse_array.h \
+	sparse_array_impl.h
 
 # FIXME GNU make extension
 %.h: %.pre.h
