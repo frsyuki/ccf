@@ -45,6 +45,7 @@ public:
 
 public:
 	void add_thread(size_t num);
+	void add_thread(size_t num, void (*init)(void*), void* user);
 
 	void end();
 	bool is_end() const;

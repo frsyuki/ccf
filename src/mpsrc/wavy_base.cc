@@ -102,6 +102,67 @@ void coreimpl::detach()
 	}
 }
 
+
+namespace {
+class thread_init {
+private:
+	struct init_pack {
+		void (*func)(void*);
+		void* user;
+		volatile coreimpl* impl;
+		volatile bool started;
+		pthread_mutex start_mutex;
+		pthread_cond  start_cond;
+	};
+
+	void started()
+	{
+		pthread_scoped_lock lk(m_init->start_mutex);
+		m_init->started = true;
+		m_init->start_cond.broadcast();
+	}
+
+public:
+	thread_init() { }
+
+	void set(coreimpl* impl, void (*func)(void*), void* user)
+	{
+		m_init.reset(new init_pack);
+		m_init->impl = impl;
+		m_init->func = func;
+		m_init->user = user;
+		m_init->started = false;
+	}
+
+	void operator() ()
+	{
+		if(m_init->func) try {
+			(*m_init->func)(m_init->user);
+		} catch (...) {
+			started();
+			throw;
+		}
+		coreimpl* impl = const_cast<coreimpl*>(m_init->impl);
+		started();
+		impl->operator()();
+	}
+
+	void wait_init()
+	{
+		{
+			pthread_scoped_lock lk(m_init->start_mutex);
+			while(!m_init->started) {
+				m_init->start_cond.wait(m_init->start_mutex);
+			}
+		}
+		m_init.reset();
+	}
+
+private:
+	std::auto_ptr<init_pack> m_init;
+};
+}  // noname namespace
+
 void coreimpl::add_thread(size_t num)
 {
 	for(size_t i=0; i < num; ++i) {
@@ -116,6 +177,24 @@ void coreimpl::add_thread(size_t num)
 	}
 }
 
+void coreimpl::add_thread(size_t num, void (*init)(void*), void* user)
+{
+	thread_init inits[num];
+	for(size_t i=0; i < num; ++i) {
+		m_workers.push_back(NULL);
+		try {
+			inits[i].set(this, init, user);
+			m_workers.back() = new pthread_thread(&inits[i]);
+		} catch (...) {
+			m_workers.pop_back();
+			throw;
+		}
+		m_workers.back()->run();
+	}
+	for(size_t i=0; i < num; ++i) {
+		inits[i].wait_init();
+	}
+}
 
 void coreimpl::submit_impl(task_t& f)
 {
@@ -340,6 +419,9 @@ void core::detach()
 
 void core::add_thread(size_t num)
 	{ ANON_impl->add_thread(num); }
+
+void core::add_thread(size_t num, void (*init)(void*), void* user)
+	{ ANON_impl->add_thread(num, init, user); }
 
 void core::submit_impl(task_t f)
 	{ ANON_impl->submit_impl(f); }

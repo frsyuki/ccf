@@ -31,11 +31,12 @@ struct singleton {
 	typedef wavy::basic_handler basic_handler;
 	typedef wavy::handler handler;
 
-	static void init(size_t num_threads = 0);
+	static void init();
 
 	static void step_next();
 
 	static void add_thread(size_t num);
+	static void add_thread(size_t num, void (*init)(void*), void* user);
 
 	static void end();
 	static bool is_end();
@@ -151,10 +152,9 @@ template <typename Instance>
 core* singleton<Instance>::s_core;
 
 template <typename Instance>
-inline void singleton<Instance>::init(size_t num_threads)
+inline void singleton<Instance>::init()
 {
 	s_core = new core();
-	add_thread(num_threads);
 }
 
 template <typename Instance>
@@ -164,6 +164,10 @@ inline void singleton<Instance>::step_next()
 template <typename Instance>
 inline void singleton<Instance>::add_thread(size_t num)
 	{ s_core->add_thread(num); }
+
+template <typename Instance>
+inline void singleton<Instance>::add_thread(size_t num, void (*init)(void*), void* user)
+	{ s_core->add_thread(num, init, user); }
 
 template <typename Instance>
 inline void singleton<Instance>::end()
