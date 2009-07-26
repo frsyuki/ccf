@@ -140,7 +140,7 @@ template <typename Message>
 inline msgid_t session::pack(msgpack::vrefbuffer& buf, Message& param)
 {
 	msgid_t msgid = __sync_add_and_fetch(&m_msgid_rr, 1);
-	message_request<Message> msgreq(Message::method, param, msgid);
+	message_request<Message> msgreq(param.method, param, msgid);
 	msgpack::pack(buf, msgreq);
 	return msgid;
 }
@@ -152,7 +152,7 @@ inline void session::call(
 		shared_zone life, callback_t callback,
 		unsigned short timeout_steps)
 {
-	LOG_DEBUG("send request method=",Message::method);
+	LOG_DEBUG("send request method=",param.method);
 
 	std::auto_ptr<msgpack::vrefbuffer> buf(new msgpack::vrefbuffer());
 	msgid_t msgid = pack(*buf, param);
@@ -174,7 +174,7 @@ inline void session::call_stream(
 		shared_zone life, callback_t callback,
 		unsigned short timeout_steps)
 {
-	LOG_DEBUG("send request with stream method=",Message::method);
+	LOG_DEBUG("send request with stream method=",param.method);
 
 	std::auto_ptr<msgpack::vrefbuffer> buf(new msgpack::vrefbuffer());
 	msgid_t msgid = pack(*buf, param);
