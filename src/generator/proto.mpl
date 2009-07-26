@@ -34,13 +34,13 @@ struct [%msg.name%] {
 				o.via.array.size > [%msg.body.size%]) {
 			throw msgpack::type_error();
 		}
-		[%b.name%] = o.via.array.ptr[[%i%]].as<[%b.type%]>();  %|b,i| msg.required.each_with_index
+		[%b.name%] = o.via.array.ptr[[%i%]].as<[%b.type%] >();  %|b,i| msg.required.each_with_index
 
 		%unless msg.optional.empty?
 		switch(o.via.array.size) {
 		%msg.optional.length.times do |i|
 		case [%msg.required.size + i%]:
-			[%x.name%] = o.via.array.ptr[[%i%]].as<[%x.type%]>(); %|x| msg.optional[0..i].each
+			[%x.name%] = o.via.array.ptr[[%i%]].as<[%x.type%] >(); %|x| msg.optional[0..i].each
 			[%x.name%] = [%x.default%];  %|x| msg.optional[i+1..-1].each
 			break;
 		%end
