@@ -32,6 +32,10 @@ namespace ccf {
 
 class scoped_listen {
 public:
+	scoped_listen() :
+		m_addr(),
+		m_sock(-1) { }
+
 	scoped_listen(const address& addr) :
 		m_addr(addr),
 		m_sock(listen(m_addr)) { }
@@ -49,6 +53,28 @@ public:
 	~scoped_listen()
 	{
 		::close(m_sock);
+	}
+
+	void reset(const address& addr)
+	{
+		scoped_listen(addr).swap(*this);
+	}
+
+	void reset(struct sockaddr_in addr)
+	{
+		scoped_listen(addr).swap(*this);
+	}
+
+#ifdef CCF_IPV6
+	void reset(struct sockaddr_in6 addr)
+	{
+		scoped_listen(addr).swap(*this);
+	}
+#endif
+
+	void reset()
+	{
+		scoped_listen().swap(*this);
 	}
 
 public:
@@ -99,12 +125,21 @@ public:
 		return address(m_addr);
 	}
 
+	void swap(scoped_listen& o)
+	{
+		address tmpaddr = o.m_addr;
+		int     tmpsock = o.m_sock;
+		o.m_addr = m_addr;
+		o.m_sock = m_sock;
+		m_addr = tmpaddr;
+		m_sock = tmpsock;
+	}
+
 private:
 	address m_addr;
 	int m_sock;
 
 private:
-	scoped_listen();
 	scoped_listen(const scoped_listen&);
 };
 
