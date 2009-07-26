@@ -3,18 +3,11 @@ export RUBY
 export MPLEX
 export RAGEL
 
-SUBDIRS = generator mp mpsrc cclog ccf logic
+if ENABLE_EXCEPTRACE
+EXCEPTRACE = exceptrace
+else
+EXCEPTRACE =
+endif
 
-#SUBDIRS = mp mpsrc
-#
-#AM_CPPFLAGS   = -I..
-#AM_C_CPPFLAGS = -I..
-#
-#bin_PROGRAMS = mptest
-#
-#mptest_SOURCES = \
-#	mptest.cc
-#
-#mptest_LDADD = \
-#	mpsrc/libmpio.a
+SUBDIRS = $(EXCEPTRACE) generator mp mpsrc cclog ccf logic
 

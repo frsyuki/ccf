@@ -1,5 +1,8 @@
 AM_CPPFLAGS   = -I..
 AM_C_CPPFLAGS = -I..
+if ENABLE_EXCEPTRACE
+AM_LDFLAGS = -ldl -Wl,--wrap,__cxa_throw ../exceptrace/exceptrace.o
+endif
 
 SUBDIRS = proto
 

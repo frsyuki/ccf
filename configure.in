@@ -105,6 +105,13 @@ AC_CHECK_LIB(msgpack,main,,
 #fi
 
 
+AC_MSG_CHECKING([if exception tracing is enabled])
+AC_ARG_ENABLE(exceptrace,
+	AS_HELP_STRING([--enable-exceptrace],
+				   [enable exceptrace tracing.]) )
+AC_MSG_RESULT($enable_exceptrace)
+AM_CONDITIONAL(ENABLE_EXCEPTRACE, test "$enable_exceptrace" = "yes")
+
 
 AC_MSG_CHECKING([if debug option is enabled])
 AC_ARG_ENABLE(debug,
@@ -122,7 +129,8 @@ AC_MSG_RESULT($enable_debug)
 
 AC_OUTPUT([
 		   src/generator/Makefile
-			 src/mp/Makefile
+		   src/exceptrace/Makefile
+		   src/mp/Makefile
 		   src/mpsrc/Makefile
 		   src/cclog/Makefile
 		   src/ccf/Makefile
