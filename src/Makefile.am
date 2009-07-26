@@ -1,5 +1,6 @@
 export ERB
 export RUBY
+export MPLEX
 export RAGEL
 
 SUBDIRS = generator mp mpsrc cclog ccf logic
