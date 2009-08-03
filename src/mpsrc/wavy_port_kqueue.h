@@ -95,7 +95,7 @@ public:
 
 	struct timer {
 	public:
-		timer() : ident(-1) { }
+		timer() : ident(-1), xv(NULL) { }
 		~timer() { if(ident >= 0) free_xvec(xv); }
 	private:
 		int ident;
@@ -142,7 +142,7 @@ public:
 
 	struct signal {
 	public:
-		signal() : ident(-1) { }
+		signal() : ident(-1), xv(NULL) { }
 		~signal() { if(ident >= 0) free_xvec(xv); }
 	private:
 		int ident;
