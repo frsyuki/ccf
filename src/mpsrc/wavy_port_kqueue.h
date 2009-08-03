@@ -189,6 +189,11 @@ public:
 		return pt->m_kq;
 	}
 
+	int ident() const
+	{
+		return m_kq;
+	}
+
 
 	int shot_reactivate(event e)
 	{
@@ -202,13 +207,16 @@ public:
 		case EVFILT_TIMER: {
 				timer tm;
 				tm.ident = e.ident();
-				tm.msec  = (unsigned long)e.kev.udata;
+				tm.xv    = get_xvec(tm.ident);
+				tm.init     = (unsigned long)e.kev.udata;
+				tm.interval = tm.init;
 				return add_timer(&tm);
 			}
 
 		case EVFILT_SIGNAL: {
 				signal sg;
-				sg.ident  = e.ident();
+				sg.ident = e.ident();
+				sg.xv    = get_xvec(sg.ident);
 				sg.signo = (int)e.kev.udata;
 				return add_signal(&sg);
 			}
