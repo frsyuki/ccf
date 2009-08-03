@@ -321,7 +321,7 @@ bool xferimpl::execute(int fd, char* head, char** tail)
 				}
 			}
 #else
-			off_t wl = x->size;
+			off_t wl = x->len;
 			if(::sendfile(x->infd, fd, x->off, &wl, NULL, 0) < 0) {
 				MP_WAVY_XFER_CONSUMED;
 				if(errno == EAGAIN || errno == EINTR) {
